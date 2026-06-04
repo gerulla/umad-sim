@@ -1,0 +1,351 @@
+@import "tailwindcss";
+
+:root {
+  color: #e5edf3;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 1180px;
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+select {
+  border: 0;
+}
+
+.app-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 16px 32px;
+  color: #edf1ff;
+  background:
+    radial-gradient(circle at center, rgba(63, 24, 104, 0.98) 0%, rgba(27, 10, 45, 0.98) 48%, rgba(6, 2, 12, 1) 100%),
+    #08030d;
+}
+
+.layout-board {
+  position: relative;
+  width: 100%;
+  height: 75vh;
+}
+
+.control-panel,
+.role-panel,
+.arena-panel,
+.info-panel-stack {
+  --panel-gap: 16px;
+  --arena-half: 37.5vh;
+}
+
+.control-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
+  gap: 12px;
+  align-items: end;
+  width: 75vh;
+  transform: translateX(-50%);
+}
+
+.control-panel.card-surface {
+  padding: 10px;
+}
+
+.role-panel {
+  position: absolute;
+  top: 0;
+  right: calc(50% + var(--arena-half) + var(--panel-gap));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 256px;
+  height: 100%;
+}
+
+.arena-panel {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  overflow: hidden;
+  width: 75vh;
+  height: 75vh;
+  border-radius: 8px;
+  outline: 1px solid rgba(237, 241, 255, 0.18);
+  background: #160d12;
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.42),
+    0 0 48px rgba(168, 85, 247, 0.12);
+  transform: translateX(-50%);
+}
+
+.info-panel-stack {
+  position: absolute;
+  top: 0;
+  left: calc(50% + var(--arena-half) + var(--panel-gap));
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  gap: 16px;
+  width: 336px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.info-panel-stack,
+.timeline-list {
+  scrollbar-color: rgba(216, 180, 254, 0.44) rgba(12, 10, 22, 0.28);
+  scrollbar-width: thin;
+}
+
+.info-panel-stack::-webkit-scrollbar,
+.timeline-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.info-panel-stack::-webkit-scrollbar-track,
+.timeline-list::-webkit-scrollbar-track {
+  background: rgba(12, 10, 22, 0.28);
+  border-radius: 999px;
+}
+
+.info-panel-stack::-webkit-scrollbar-thumb,
+.timeline-list::-webkit-scrollbar-thumb {
+  background: rgba(216, 180, 254, 0.44);
+  border-radius: 999px;
+}
+
+.card-surface {
+  border: 1px solid rgba(237, 241, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(12, 10, 22, 0.68);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px);
+  padding: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: rgba(216, 180, 254, 0.76);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.control-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.control-field span {
+  color: rgba(216, 180, 254, 0.72);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.control-field select {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 36px 0 12px;
+  border: 1px solid rgba(196, 181, 253, 0.34);
+  border-radius: 8px;
+  color: #f8f7ff;
+  background: rgba(11, 8, 20, 0.92);
+  cursor: pointer;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.role-button,
+.panel-button,
+.timeline-list button {
+  border: 1px solid rgba(237, 241, 255, 0.14);
+  border-radius: 8px;
+  color: #e9edff;
+  background: rgba(18, 15, 32, 0.78);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.role-button {
+  display: grid;
+  min-height: 88px;
+  gap: 6px;
+  place-items: center;
+  padding: 10px;
+}
+
+.role-button:hover,
+.panel-button:hover,
+.timeline-list button:hover {
+  border-color: rgba(237, 241, 255, 0.32);
+  background: rgba(32, 26, 53, 0.86);
+}
+
+.role-button.active {
+  border-color: var(--role-color);
+  background: color-mix(in srgb, var(--role-color) 20%, rgba(18, 15, 32, 0.9));
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.role-icon-stack,
+.role-summary-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(237, 241, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(8, 6, 14, 0.62);
+}
+
+.role-icon-stack {
+  width: 38px;
+  height: 38px;
+}
+
+.role-icon-stack img,
+.role-summary-icon img {
+  width: 74%;
+  height: 74%;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+}
+
+.role-badge,
+.role-summary-icon span {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  display: grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border: 1px solid color-mix(in srgb, var(--role-color) 72%, #ffffff);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(8, 6, 14, 0.96);
+  box-shadow: 0 0 0 2px rgba(8, 6, 14, 0.9);
+  font-size: 0.64rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.role-label {
+  color: #f8f7ff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.role-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.role-summary-icon {
+  width: 48px;
+  height: 48px;
+  border-color: color-mix(in srgb, var(--role-color) 58%, rgba(237, 241, 255, 0.18));
+  background: rgba(8, 6, 14, 0.72);
+}
+
+.panel-button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.timeline-card {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.timeline-list {
+  display: grid;
+  min-height: 0;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.timeline-list button {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 42px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.timeline-list button span {
+  color: rgba(216, 180, 254, 0.72);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.timeline-list button strong {
+  overflow: hidden;
+  color: #edf1ff;
+  font-size: 0.86rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-list button.active {
+  border-color: rgba(45, 212, 191, 0.74);
+  background: rgba(20, 184, 166, 0.16);
+}
+
+.canvas-stage,
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  cursor: crosshair;
+}
