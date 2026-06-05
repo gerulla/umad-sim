@@ -31,6 +31,10 @@ const ALL_THINGS_NEXT_TOWER_MOVE_DELAY = 1;
 const FINAL_SPREAD_AFTER_CLEAVE_DELAY = 1;
 const BOT_REVEAL_LEAD_TIME = 1;
 const FINAL_TOWER_WAVE = 8;
+const SET_ONE_STACK_MODES = {
+  buddy: 'buddy',
+  supportDpsPriority: 'supportDpsPriority'
+};
 const GROUP_B_HELPER_TOWERS = new Set([1, 2, 3, 8]);
 const ROLE_CATEGORIES = {
   tanks: ['MT', 'OT'],
@@ -197,14 +201,19 @@ const LPDU_MOVEMENT_PLAN = [
 ];
 
 export class LPDUStrategy extends BaseStrategy {
-  constructor() {
+  constructor({
+    id = 'lpdu',
+    label = 'LPDU Buddy Set1',
+    setOneStackMode = SET_ONE_STACK_MODES.buddy
+  } = {}) {
     super({
-      id: 'lpdu',
-      label: 'LPDU',
+      id,
+      label,
       mechanicId: 'forsaken',
       waymarkers: LPDU_WAYMARKERS,
       movementPlan: LPDU_MOVEMENT_PLAN
     });
+    this.setOneStackMode = setOneStackMode;
   }
 
   resolveAction(action, state) {
@@ -213,7 +222,7 @@ export class LPDUStrategy extends BaseStrategy {
         strategy: this.id,
         actionId: action.id,
         mode: action.type,
-        oddTower: getOddTowerAssignmentRowsForAction(action, state),
+        oddTower: getOddTowerAssignmentRowsForAction(action, state, this),
         evenTower: getEvenTowerAssignmentRowsForAction(action, state),
         bait: getBaitAssignmentRowsForAction(action, state),
         finalSpread: getFinalSpreadAssignmentRowsForAction(action, state)
@@ -231,7 +240,7 @@ export class LPDUStrategy extends BaseStrategy {
   }
 
   getOddTowerTestPositions(state, towerPosition, waveNumber = 1) {
-    const slotAssignments = getOddTowerSlotAssignments(state, waveNumber);
+    const slotAssignments = getOddTowerSlotAssignments(state, waveNumber, this);
 
     if (!slotAssignments) {
       return [];
@@ -285,12 +294,12 @@ export class LPDUStrategy extends BaseStrategy {
     if (action?.type === 'marker-spawn') {
       return [
         getForsakenMarkerGroupNote(state),
-        getOddTowerResolveNote(state, 1)
+        getOddTowerResolveNote(state, 1, this)
       ].join('\n');
     }
 
     if (action?.type === 'tower-wave' && ODD_TOWER_WAVES.includes(action.payload?.wave)) {
-      return getOddTowerResolveNote(state, action.payload.wave);
+      return getOddTowerResolveNote(state, action.payload.wave, this);
     }
 
     if (action?.type === 'tower-wave' && EVEN_TOWER_WAVES.includes(action.payload?.wave)) {
@@ -302,7 +311,7 @@ export class LPDUStrategy extends BaseStrategy {
     }
 
     if (action?.type === 'all-things-cast' && EVEN_TOWER_WAVES.includes(action.payload?.wave)) {
-      return getAllThingsResolveNote(state, action.payload.wave);
+      return getAllThingsResolveNote(state, action.payload.wave, this);
     }
 
     if (action?.type === 'all-things-cleave' && action.payload?.wave === FINAL_TOWER_WAVE) {
@@ -314,6 +323,16 @@ export class LPDUStrategy extends BaseStrategy {
     }
 
     return 'No LPDU resolve note has been defined for this step yet.';
+  }
+}
+
+export class LPDUFinalTwoStrategy extends LPDUStrategy {
+  constructor() {
+    super({
+      id: 'lpdu-final-2',
+      label: 'LPDU Final 2',
+      setOneStackMode: SET_ONE_STACK_MODES.supportDpsPriority
+    });
   }
 }
 
@@ -479,9 +498,9 @@ function createFinalFutureBaitVisibility() {
   };
 }
 
-function getOddTowerRolePositions({ state }, waveNumber) {
+function getOddTowerRolePositions({ state, strategy }, waveNumber) {
   const towerWave = getTowerWave(state, waveNumber);
-  const slotAssignments = getOddTowerSlotAssignments(state, waveNumber);
+  const slotAssignments = getOddTowerSlotAssignments(state, waveNumber, strategy);
 
   if (!towerWave || !slotAssignments) {
     return [];
@@ -562,7 +581,7 @@ function getFinalSpreadRolePositions({ state }) {
   }));
 }
 
-function getOddTowerSlotAssignments(state, waveNumber) {
+function getOddTowerSlotAssignments(state, waveNumber, strategy = null) {
   const markerGroups = getForsakenMarkerGroups(state);
   const storedMarkers = getStoredMarkers(state);
 
@@ -592,7 +611,8 @@ function getOddTowerSlotAssignments(state, waveNumber) {
     activeAoeRoleId,
     stackRoleIds,
     storedMarkers,
-    waveNumber
+    waveNumber,
+    strategy
   });
 
   return assignments;
@@ -639,12 +659,15 @@ function assignOddTowerStackBuddySlots({
   activeAoeRoleId,
   stackRoleIds,
   storedMarkers,
-  waveNumber
+  waveNumber,
+  strategy
 }) {
   const supportStackRoleId = getSupportStackRoleId(stackRoleIds);
   const dpsStackRoleId = getDpsStackRoleId(stackRoleIds);
+  const shouldUseBuddyStacks = waveNumber === 1
+    && getSetOneStackMode(strategy) === SET_ONE_STACK_MODES.buddy;
 
-  if (waveNumber !== 1 && supportStackRoleId && dpsStackRoleId) {
+  if (!shouldUseBuddyStacks && supportStackRoleId && dpsStackRoleId) {
     assignSlot(assignments, supportStackRoleId, ODD_TOWER_SLOT_IDS.coneStackBuddy);
     assignSlot(assignments, dpsStackRoleId, ODD_TOWER_SLOT_IDS.aoeStackBuddy);
     return;
@@ -688,6 +711,10 @@ function assignOddTowerStackBuddySlots({
   } else if (!hasAoeStackBuddy) {
     assignSlot(assignments, stackRoleId, ODD_TOWER_SLOT_IDS.aoeStackBuddy);
   }
+}
+
+function getSetOneStackMode(strategy) {
+  return strategy?.setOneStackMode ?? SET_ONE_STACK_MODES.buddy;
 }
 
 function isActiveStackRole(roleId, activeRoles, storedMarkers) {
@@ -842,8 +869,8 @@ function getForsakenMarkerGroups(state) {
   });
 }
 
-function getOddTowerResolveNote(state, waveNumber) {
-  const slotAssignments = getOddTowerSlotAssignments(state, waveNumber);
+function getOddTowerResolveNote(state, waveNumber, strategy = null) {
+  const slotAssignments = getOddTowerSlotAssignments(state, waveNumber, strategy);
 
   if (!slotAssignments) {
     return `Tower ${waveNumber} LPDU odd-tower assignments pending...`;
@@ -853,7 +880,7 @@ function getOddTowerResolveNote(state, waveNumber) {
   const slotRoles = Object.fromEntries(
     Object.entries(slotAssignments).map(([roleId, slotId]) => [slotId, roleId])
   );
-  const slotPositions = getOddTowerSlotPositionMap(state, waveNumber);
+  const slotPositions = getOddTowerSlotPositionMap(state, waveNumber, strategy);
 
   return [
     `Tower ${waveNumber}: ${helperGroup} helps`,
@@ -910,11 +937,11 @@ function getBaitResolveNote(state, waveNumber) {
   ].join('\n');
 }
 
-function getAllThingsResolveNote(state, waveNumber) {
+function getAllThingsResolveNote(state, waveNumber, strategy = null) {
   const event = getEvenTowerEvent(state, waveNumber);
   const nextWaveNumber = waveNumber + 1;
   const nextTowerNote = ODD_TOWER_WAVES.includes(nextWaveNumber)
-    ? getOddTowerResolveNote(state, nextWaveNumber)
+    ? getOddTowerResolveNote(state, nextWaveNumber, strategy)
     : null;
 
   if (waveNumber === FINAL_TOWER_WAVE) {
@@ -951,20 +978,20 @@ function getFinalSpreadResolveNote(state) {
   ].join('\n');
 }
 
-function getOddTowerAssignmentRowsForAction(action, state) {
+function getOddTowerAssignmentRowsForAction(action, state, strategy = null) {
   const waveNumber = getOddTowerWaveForAction(action);
 
   if (!waveNumber) {
     return [];
   }
 
-  const slotAssignments = getOddTowerSlotAssignments(state, waveNumber);
+  const slotAssignments = getOddTowerSlotAssignments(state, waveNumber, strategy);
 
   if (!slotAssignments) {
     return [];
   }
   const positionsByRole = Object.fromEntries(
-    getOddTowerRolePositions({ state }, waveNumber).map((position) => [
+    getOddTowerRolePositions({ state, strategy }, waveNumber).map((position) => [
       position.roleId,
       position
     ])
@@ -1092,9 +1119,9 @@ function formatSlotAssignment(slotRoles, slotPositions, slotId, slotLabels) {
   return `${slotLabels[slotId]}: ${roleId}${coordinateLabel}`;
 }
 
-function getOddTowerSlotPositionMap(state, waveNumber) {
+function getOddTowerSlotPositionMap(state, waveNumber, strategy = null) {
   return Object.fromEntries(
-    getOddTowerRolePositions({ state }, waveNumber).map((position) => [
+    getOddTowerRolePositions({ state, strategy }, waveNumber).map((position) => [
       position.slotId,
       position
     ])

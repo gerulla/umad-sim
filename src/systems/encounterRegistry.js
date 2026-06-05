@@ -1,13 +1,14 @@
 import { Encounter } from '../core/Encounter.js';
 import { ForsakenMechanic } from '../mechanics/forsaken/ForsakenMechanic.js';
-import { LPDUStrategy } from '../strategies/lpdu/LPDUStrategy.js';
+import { LPDUFinalTwoStrategy, LPDUStrategy } from '../strategies/lpdu/LPDUStrategy.js';
 
 const MECHANIC_FACTORIES = {
   forsaken: () => new ForsakenMechanic()
 };
 
 const STRATEGY_FACTORIES = {
-  lpdu: () => new LPDUStrategy()
+  lpdu: () => new LPDUStrategy(),
+  'lpdu-final-2': () => new LPDUFinalTwoStrategy()
 };
 
 export function getMechanicOptions() {
