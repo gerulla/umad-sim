@@ -1,0 +1,16 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="markerShadow" x="0" y="0" width="96" height="96" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#EA580C" flood-opacity="0.78"/>
+      <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#2B1200" flood-opacity="0.52"/>
+    </filter>
+  </defs>
+  <path
+    d="M48 85L13 15C33 10 67 10 87 15L48 85Z"
+    fill="#EA580C"
+    stroke="#FDBA74"
+    stroke-width="3"
+    stroke-linejoin="round"
+    filter="url(#markerShadow)"
+  />
+</svg>
