@@ -203,7 +203,7 @@ const LPDU_MOVEMENT_PLAN = [
 export class LPDUStrategy extends BaseStrategy {
   constructor({
     id = 'lpdu',
-    label = 'LPDU Buddy Set1',
+    label = 'LPDU (P3Z)',
     setOneStackMode = SET_ONE_STACK_MODES.buddy
   } = {}) {
     super({
@@ -330,7 +330,7 @@ export class LPDUFinalTwoStrategy extends LPDUStrategy {
   constructor() {
     super({
       id: 'lpdu-final-2',
-      label: 'LPDU Final 2',
+      label: 'LPDU (SzIZ)',
       setOneStackMode: SET_ONE_STACK_MODES.supportDpsPriority
     });
   }
