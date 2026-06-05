@@ -1,10 +1,14 @@
 import { createRandomSeed, RandomSource } from './RandomSource.js';
 
 const CONTROLLED_PLAYER_MOVEMENT_SPEED_MULTIPLIER = 1.5;
+const LATE_STRATEGY_MOVEMENT_MIN_SPEED = 1.4;
+const LATE_STRATEGY_MOVEMENT_ARRIVE_EARLY_SECONDS = 0.12;
+const MIN_LATE_STRATEGY_MOVEMENT_TRAVEL_SECONDS = 0.12;
 
 export class Encounter {
   constructor({ mechanic, strategy, roles, controlledRoleId }) {
     this.strategyMovementSpeed = 0.45;
+    this.lateStrategyMovement = false;
     this.randomResetCount = 0;
     this.randomSeed = 0;
     this.randomSource = null;
@@ -108,6 +112,11 @@ export class Encounter {
 
   setStrategyMovementSpeed(speed) {
     this.strategyMovementSpeed = Math.max(0, Number(speed) || 0);
+    return this;
+  }
+
+  setLateStrategyMovement(enabled) {
+    this.lateStrategyMovement = Boolean(enabled);
     return this;
   }
 
@@ -242,6 +251,23 @@ export class Encounter {
       }
 
       const positions = this.strategy.resolveMovementItem(item, context);
+      const movementTiming = item.resolveVisibility(context, positions);
+
+      if (
+        this.lateStrategyMovement
+        && movementTiming
+        && this.elapsedSeconds < movementTiming.revealAt
+      ) {
+        this.lastStrategyMovement = {
+          itemId: item.id,
+          label: item.label,
+          targets: [],
+          delayed: true,
+          revealAt: movementTiming.revealAt
+        };
+        return;
+      }
+
       const targets = [];
 
       positions.forEach((position) => {
@@ -253,7 +279,8 @@ export class Encounter {
 
         bot.setMovementTarget(position.x, position.y, {
           sourceId: item.id,
-          label: item.label
+          label: item.label,
+          speed: this.getStrategyMovementTargetSpeed(bot, position, movementTiming)
         });
         targets.push(position);
       });
@@ -265,7 +292,9 @@ export class Encounter {
       this.lastStrategyMovement = {
         itemId: item.id,
         label: item.label,
-        targets
+        targets,
+        delayed: false,
+        revealAt: movementTiming?.revealAt ?? null
       };
     });
   }
@@ -287,6 +316,24 @@ export class Encounter {
       strategy: this.strategy,
       state: this.state
     };
+  }
+
+  getStrategyMovementTargetSpeed(bot, position, movementTiming) {
+    if (!this.lateStrategyMovement || !movementTiming?.resolveAt) {
+      return null;
+    }
+
+    const distance = Math.hypot(position.x - bot.x, position.y - bot.y);
+    const travelSeconds = Math.max(
+      MIN_LATE_STRATEGY_MOVEMENT_TRAVEL_SECONDS,
+      movementTiming.resolveAt - this.elapsedSeconds - LATE_STRATEGY_MOVEMENT_ARRIVE_EARLY_SECONDS
+    );
+
+    return Math.max(
+      this.strategyMovementSpeed,
+      LATE_STRATEGY_MOVEMENT_MIN_SPEED,
+      distance / travelSeconds
+    );
   }
 }
 

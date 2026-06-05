@@ -569,6 +569,24 @@ select {
   white-space: nowrap;
 }
 
+.practice-toggle {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.practice-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: #c084fc;
+  cursor: pointer;
+}
+
 .replay-card {
   display: grid;
   gap: 10px;

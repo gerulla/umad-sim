@@ -1,10 +1,11 @@
 export class StrategyMovementItem {
-  constructor({ id, label = '', trigger, positions = {}, once = true }) {
+  constructor({ id, label = '', trigger, positions = {}, once = true, visibility = null }) {
     this.id = id;
     this.label = label;
     this.trigger = trigger;
     this.positions = positions;
     this.once = once;
+    this.visibility = visibility;
   }
 
   isReady(context) {
@@ -39,9 +40,43 @@ export class StrategyMovementItem {
       ...resolveStrategyPosition(position, context)
     }));
   }
+
+  resolveVisibility(context, positions = []) {
+    if (!this.visibility) {
+      return null;
+    }
+
+    const visibility = typeof this.visibility === 'function'
+      ? this.visibility({ ...context, positions })
+      : this.visibility;
+
+    if (!visibility) {
+      return null;
+    }
+
+    const revealAt = typeof visibility.revealAt === 'function'
+      ? visibility.revealAt({ ...context, positions })
+      : visibility.revealAt;
+    const resolveAt = typeof visibility.resolveAt === 'function'
+      ? visibility.resolveAt({ ...context, positions })
+      : visibility.resolveAt;
+
+    if (!Number.isFinite(revealAt)) {
+      return null;
+    }
+
+    return {
+      label: visibility.label ?? this.label,
+      revealAt,
+      resolveAt: Number.isFinite(resolveAt) ? resolveAt : null,
+      roleIds: Array.isArray(visibility.roleIds)
+        ? visibility.roleIds
+        : positions.map((position) => position.roleId)
+    };
+  }
 }
 
-export function timeBasedMovement({ id, label, at, positions, once = true }) {
+export function timeBasedMovement({ id, label, at, positions, once = true, visibility = null }) {
   return new StrategyMovementItem({
     id,
     label,
@@ -50,7 +85,8 @@ export function timeBasedMovement({ id, label, at, positions, once = true }) {
       at
     },
     positions,
-    once
+    once,
+    visibility
   });
 }
 
@@ -60,7 +96,8 @@ export function conditionBasedMovement({
   conditionSetId,
   condition,
   positions,
-  once = true
+  once = true,
+  visibility = null
 }) {
   return new StrategyMovementItem({
     id,
@@ -71,7 +108,8 @@ export function conditionBasedMovement({
       condition
     },
     positions,
-    once
+    once,
+    visibility
   });
 }
 

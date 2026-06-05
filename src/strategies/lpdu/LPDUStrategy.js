@@ -29,6 +29,7 @@ const EVEN_TOWER_MOVEMENT_DELAY = 1.5;
 const EVEN_TOWER_BAIT_MOVEMENT_DELAY = ODD_TOWER_MOVEMENT_DELAY;
 const ALL_THINGS_NEXT_TOWER_MOVE_DELAY = 1;
 const FINAL_SPREAD_AFTER_CLEAVE_DELAY = 1;
+const BOT_REVEAL_LEAD_TIME = 1;
 const FINAL_TOWER_WAVE = 8;
 const GROUP_B_HELPER_TOWERS = new Set([1, 2, 3, 8]);
 const ROLE_CATEGORIES = {
@@ -342,7 +343,8 @@ function createOddTowerMovementItems() {
           && getStoredMarkers(state)
         );
       },
-      positions: (context) => getOddTowerRolePositions(context, wave)
+      positions: (context) => getOddTowerRolePositions(context, wave),
+      visibility: createTowerSolveVisibility(wave)
     })
   ));
 }
@@ -364,7 +366,8 @@ function createEvenTowerMovementItems() {
           && getStoredMarkers(state)
         );
       },
-      positions: (context) => getEvenTowerRolePositions(context, wave)
+      positions: (context) => getEvenTowerRolePositions(context, wave),
+      visibility: createTowerSolveVisibility(wave)
     })
   ));
 }
@@ -389,7 +392,8 @@ function createEvenTowerBaitMovementItems() {
         wave === FINAL_TOWER_WAVE
           ? getSpecificBaitRolePositions(context, wave, PAST_END_BAIT_POLAR_OFFSETS)
           : getBaitRolePositions(context, wave)
-      )
+      ),
+      visibility: createBaitVisibility(wave)
     })
   ));
 }
@@ -408,7 +412,8 @@ function createFinalTowerMovementItems() {
           && encounter.elapsedSeconds < event.cleaveTime + FINAL_SPREAD_AFTER_CLEAVE_DELAY
         );
       },
-      positions: (context) => getSpecificBaitRolePositions(context, FINAL_TOWER_WAVE, FUTURE_END_BAIT_POLAR_OFFSETS)
+      positions: (context) => getSpecificBaitRolePositions(context, FINAL_TOWER_WAVE, FUTURE_END_BAIT_POLAR_OFFSETS),
+      visibility: createFinalFutureBaitVisibility()
     }),
     conditionBasedMovement({
       id: 'lpdu-final-spread',
@@ -424,6 +429,54 @@ function createFinalTowerMovementItems() {
       positions: (context) => getFinalSpreadRolePositions(context)
     })
   ];
+}
+
+function createTowerSolveVisibility(waveNumber) {
+  return ({ state }) => {
+    const towerWave = getTowerWave(state, waveNumber);
+
+    if (!towerWave) {
+      return null;
+    }
+
+    return {
+      label: `Tower ${waveNumber} solve`,
+      revealAt: towerWave.resolveStartTime - BOT_REVEAL_LEAD_TIME,
+      resolveAt: towerWave.resolveStartTime
+    };
+  };
+}
+
+function createBaitVisibility(waveNumber) {
+  return ({ state }) => {
+    const event = getEvenTowerEvent(state, waveNumber);
+
+    if (!event) {
+      return null;
+    }
+
+    return {
+      label: `Tower ${waveNumber} bait`,
+      revealAt: event.allThingsStartTime - BOT_REVEAL_LEAD_TIME,
+      resolveAt: event.allThingsStartTime
+    };
+  };
+}
+
+function createFinalFutureBaitVisibility() {
+  return ({ state }) => {
+    const event = getEvenTowerEvent(state, FINAL_TOWER_WAVE);
+
+    if (!event) {
+      return null;
+    }
+
+    return {
+      label: 'Tower 8 Future bait',
+      revealAt: event.cleaveTime - BOT_REVEAL_LEAD_TIME,
+      resolveAt: event.cleaveTime
+    };
+  };
 }
 
 function getOddTowerRolePositions({ state }, waveNumber) {

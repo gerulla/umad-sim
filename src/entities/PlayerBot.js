@@ -56,7 +56,8 @@ export class PlayerBot {
       x: clamp01(x),
       y: clamp01(y),
       sourceId: options.sourceId ?? null,
-      label: options.label ?? ''
+      label: options.label ?? '',
+      speed: Number.isFinite(options.speed) ? options.speed : null
     };
 
     return this;
@@ -68,7 +69,9 @@ export class PlayerBot {
   }
 
   updateMovement(deltaSeconds, speed) {
-    if (!this.movementTarget || speed <= 0 || deltaSeconds <= 0) {
+    const movementSpeed = this.movementTarget?.speed ?? speed;
+
+    if (!this.movementTarget || movementSpeed <= 0 || deltaSeconds <= 0) {
       return this;
     }
 
@@ -82,7 +85,7 @@ export class PlayerBot {
       return this;
     }
 
-    const step = speed * deltaSeconds;
+    const step = movementSpeed * deltaSeconds;
 
     if (step >= distance) {
       this.moveTo(this.movementTarget.x, this.movementTarget.y);

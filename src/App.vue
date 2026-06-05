@@ -93,6 +93,9 @@ const encounter = reactive(createEncounterByIds({
 }));
 const isPlaying = ref(false);
 const resolveNoteHidden = ref(false);
+const practiceSettings = reactive({
+  lateBotMovement: false
+});
 const partyPositionsOutput = ref('');
 const wipePause = reactive({
   active: false,
@@ -597,6 +600,10 @@ function syncMarkerEffectConfig() {
 
 function syncStrategyMovementSpeed() {
   encounter.setStrategyMovementSpeed(devSettings.botMovementSpeed);
+}
+
+function syncLateBotMovement() {
+  encounter.setLateStrategyMovement(practiceSettings.lateBotMovement);
 }
 
 function drawArena() {
@@ -1442,6 +1449,7 @@ function runTowerTest() {
   encounter.resetToIdle();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
+  syncLateBotMovement();
   encounter.mechanic.ensureBossSpawned?.(encounter.state);
 
   const markerAssignments = createForsakenOpeningMarkerAssignments(
@@ -1759,12 +1767,14 @@ function toggleTimer() {
 
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
+  syncLateBotMovement();
   if (encounter.status === 'complete') {
     clearWipePause();
     resetPeriodicHealing();
     encounter.resetToIdle();
     syncMarkerEffectConfig();
     syncStrategyMovementSpeed();
+    syncLateBotMovement();
   }
 
   if (encounter.status === 'idle') {
@@ -1792,6 +1802,7 @@ function resetTimer() {
   encounter.resetToIdle();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
+  syncLateBotMovement();
   drawArena();
 }
 
@@ -1968,6 +1979,13 @@ watch(
 );
 
 watch(
+  () => practiceSettings.lateBotMovement,
+  () => {
+    syncLateBotMovement();
+  }
+);
+
+watch(
   () => devSettings.devMovement,
   (enabled) => {
     if (!enabled) {
@@ -2024,6 +2042,7 @@ watch(selectedMechanicId, (mechanicId) => {
   });
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
+  syncLateBotMovement();
   canvasState.feedback = `${encounter.mechanic.label} selected. Start the timer or choose a timeline item to begin.`;
   preloadRenderableAssets();
   drawArena();
@@ -2036,6 +2055,7 @@ watch(selectedStrategyId, (strategyId) => {
     clearReplay();
     encounter.setStrategy(strategy);
     syncStrategyMovementSpeed();
+    syncLateBotMovement();
     drawArena();
   }
 });
@@ -2049,6 +2069,7 @@ onMounted(async () => {
 
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
+  syncLateBotMovement();
   await preloadRenderableAssets();
 
   await nextTick();
@@ -2411,6 +2432,10 @@ onBeforeUnmount(() => {
             </button>
             <button type="button" class="panel-button timer-action reset" @click="resetTimer">Reset</button>
           </div>
+          <label class="practice-toggle">
+            <input v-model="practiceSettings.lateBotMovement" type="checkbox" />
+            <span>Late bot movement</span>
+          </label>
         </section>
 
         <section class="card-surface replay-card">
