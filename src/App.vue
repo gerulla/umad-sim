@@ -2189,38 +2189,56 @@ onBeforeUnmount(() => {
 
     <main class="layout-board" aria-label="UMAD mechanic simulator">
       <section class="control-panel card-surface">
-        <div class="min-w-0">
+        <div class="top-cell">
           <p class="eyebrow">UMAD</p>
-          <h1 class="truncate text-base font-black text-slate-50">Mechanic Sim</h1>
+          <h1>Mechanic Sim</h1>
         </div>
 
-        <div class="grid min-w-0 grid-cols-2 gap-3">
-          <label class="control-field">
-            <span>Mechanic</span>
-            <select v-model="selectedMechanicId" :disabled="encounterActive">
-              <option
-                v-for="mechanic in mechanicOptions"
-                :key="mechanic.id"
-                :value="mechanic.id"
-              >
-                {{ mechanic.label }}
-              </option>
-            </select>
-          </label>
-
-          <label class="control-field">
-            <span>Strategy</span>
-            <select v-model="selectedStrategyId" :disabled="encounterActive">
-              <option
-                v-for="strategy in strategyOptions"
-                :key="strategy.id"
-                :value="strategy.id"
-              >
-                {{ strategy.label }}
-              </option>
-            </select>
-          </label>
+        <div class="top-cell">
+          <p class="eyebrow">Built By</p>
+          <strong>Your Local Grey-Parser</strong>
         </div>
+
+        <a
+          class="top-cell top-link"
+          href="https://discord.gg/3HWQfqY7B9"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <p class="eyebrow">Complain Here</p>
+          <strong>
+            <svg class="discord-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18.6 5.2a15 15 0 0 0-3.7-1.1l-.5 1a13.7 13.7 0 0 0-4.8 0l-.5-1a15 15 0 0 0-3.7 1.1C3.1 8.6 2.5 12 2.8 15.4a15.1 15.1 0 0 0 4.6 2.3l1-1.6a9 9 0 0 1-1.6-.8l.4-.3a10.8 10.8 0 0 0 9.6 0l.4.3a9 9 0 0 1-1.6.8l1 1.6a15.1 15.1 0 0 0 4.6-2.3c.4-4-.7-7.3-3.6-10.2ZM9.1 13.8c-.9 0-1.6-.8-1.6-1.8s.7-1.8 1.6-1.8 1.6.8 1.6 1.8-.7 1.8-1.6 1.8Zm5.8 0c-.9 0-1.6-.8-1.6-1.8s.7-1.8 1.6-1.8 1.6.8 1.6 1.8-.7 1.8-1.6 1.8Z" />
+            </svg>
+            Discord
+          </strong>
+        </a>
+
+        <label class="control-field">
+          <span>Mechanic</span>
+          <select v-model="selectedMechanicId" :disabled="encounterActive">
+            <option
+              v-for="mechanic in mechanicOptions"
+              :key="mechanic.id"
+              :value="mechanic.id"
+            >
+              {{ mechanic.label }}
+            </option>
+          </select>
+        </label>
+
+        <label class="control-field">
+          <span>Strategy</span>
+          <select v-model="selectedStrategyId" :disabled="encounterActive">
+            <option
+              v-for="strategy in strategyOptions"
+              :key="strategy.id"
+              :value="strategy.id"
+            >
+              {{ strategy.label }}
+            </option>
+          </select>
+        </label>
       </section>
 
       <aside class="role-panel-stack" :aria-label="encounterActive ? 'Party list and timeline' : 'Select role and timeline'">

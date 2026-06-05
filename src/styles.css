@@ -165,15 +165,67 @@ select {
   bottom: calc(100% + 8px);
   left: 50%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
-  gap: 12px;
-  align-items: end;
-  width: 75vh;
+  grid-template-columns: max-content max-content max-content minmax(170px, 1fr) minmax(170px, 1fr);
+  gap: 28px;
+  align-items: start;
+  width: max(75vh, 1020px);
   transform: translateX(-50%);
 }
 
 .control-panel.card-surface {
   padding: 10px;
+}
+
+.top-cell {
+  display: grid;
+  grid-template-rows: 16px 32px;
+  align-items: center;
+  min-width: 0;
+  color: #f8f7ff;
+  text-decoration: none;
+}
+
+.top-cell .eyebrow {
+  display: flex;
+  align-items: center;
+  height: 16px;
+  margin: 0;
+  line-height: 1;
+}
+
+.top-cell h1,
+.top-cell strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  margin: 0;
+  color: #f8f7ff;
+  font-size: 1rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-link {
+  color: #c4b5fd;
+}
+
+.top-link strong {
+  color: #c4b5fd;
+}
+
+.top-link:hover strong {
+  color: #f8f7ff;
+}
+
+.discord-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: currentColor;
 }
 
 .role-panel-stack {
@@ -283,21 +335,27 @@ select {
 
 .control-field {
   display: grid;
-  gap: 4px;
+  grid-template-rows: 16px 32px;
+  align-items: center;
   min-width: 0;
 }
 
 .control-field span {
+  display: flex;
+  align-items: center;
+  height: 16px;
   color: rgba(216, 180, 254, 0.72);
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.08em;
+  line-height: 1;
   text-transform: uppercase;
 }
 
 .control-field select {
   min-width: 0;
-  min-height: 34px;
+  height: 32px;
+  min-height: 32px;
   padding: 0 36px 0 12px;
   border: 1px solid rgba(196, 181, 253, 0.34);
   border-radius: 8px;
