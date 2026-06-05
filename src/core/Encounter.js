@@ -9,6 +9,7 @@ export class Encounter {
   constructor({ mechanic, strategy, roles, controlledRoleId }) {
     this.strategyMovementSpeed = 0.45;
     this.lateStrategyMovement = false;
+    this.mechanicSettings = {};
     this.randomResetCount = 0;
     this.randomSeed = 0;
     this.randomSource = null;
@@ -117,6 +118,14 @@ export class Encounter {
 
   setLateStrategyMovement(enabled) {
     this.lateStrategyMovement = Boolean(enabled);
+    return this;
+  }
+
+  setMechanicSettings(settings = {}) {
+    this.mechanicSettings = {
+      ...this.mechanicSettings,
+      ...settings
+    };
     return this;
   }
 

@@ -289,7 +289,9 @@ export class ForsakenMechanic extends BaseMechanic {
     const randomSource = getRunRandomSource(encounter);
     const previousTowerSignature = getTowerSequenceSignature(state.getMechanicData('towerSequence'));
     const previousOpeningMarkerSignature = getOpeningMarkerSignature(state.getMechanicData('openingMarkerAssignments'));
-    const towerSequence = createTowerSequence(randomSource, previousTowerSignature);
+    const towerSequence = createTowerSequence(randomSource, previousTowerSignature, {
+      fixedMarker: encounter?.mechanicSettings?.fixedTowerMarker
+    });
     const evenTowerEvents = createEvenTowerEvents(randomSource);
 
     state.resetPlayerVitals();
@@ -1020,7 +1022,11 @@ function FinalTowerResolve() {
   };
 }
 
-function createTowerSequence(randomSource = DEFAULT_RANDOM_SOURCE, avoidSignature = null) {
+function createTowerSequence(randomSource = DEFAULT_RANDOM_SOURCE, avoidSignature = null, options = {}) {
+  if (options.fixedMarker) {
+    return createFixedTowerSequence(options.fixedMarker);
+  }
+
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const sequence = createTowerSequenceCandidate(randomSource);
 
@@ -1030,6 +1036,34 @@ function createTowerSequence(randomSource = DEFAULT_RANDOM_SOURCE, avoidSignatur
   }
 
   return createTowerSequenceCandidate(randomSource);
+}
+
+function createFixedTowerSequence(marker) {
+  const positionIndex = POSSIBLE_TOWER_POSITIONS.findIndex((position) => position.marker === marker);
+  const fixedIndex = positionIndex >= 0 ? positionIndex : 0;
+  const position = POSSIBLE_TOWER_POSITIONS[fixedIndex];
+  const direction = 'fixed';
+  const waves = Array.from({ length: TOWER_WAVE_COUNT }, (_, index) => {
+    const startTime = TOWER_WAVE_START_TIME + index * TOWER_ACTIVE_DURATION;
+
+    return {
+      wave: index + 1,
+      direction,
+      positionIndex: fixedIndex,
+      position,
+      startTime,
+      resolveStartTime: startTime + TOWER_ACTIVE_DURATION,
+      endTime: startTime + TOWER_ACTIVE_DURATION + TOWER_RESOLVE_DURATION
+    };
+  });
+
+  return {
+    startIndex: fixedIndex,
+    startMarker: position.marker,
+    direction,
+    fixedMarker: position.marker,
+    waves
+  };
 }
 
 function createTowerSequenceCandidate(randomSource) {

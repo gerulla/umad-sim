@@ -32,6 +32,7 @@ const overheadMarkerIcons = {
 
 const LIVING_PLAYER_HEAL_INTERVAL_SECONDS = 2;
 const REPLAY_RECORD_INTERVAL_SECONDS = 0.1;
+const FAILURE_TOAST_LIFETIME_MS = 5000;
 const WATCH_BOTS_ROLE_ID = 'WATCH_BOTS';
 const watchBotsRole = {
   id: WATCH_BOTS_ROLE_ID,
@@ -94,7 +95,8 @@ const encounter = reactive(createEncounterByIds({
 const isPlaying = ref(false);
 const resolveNoteHidden = ref(false);
 const practiceSettings = reactive({
-  lateBotMovement: false
+  lateBotMovement: false,
+  lockTowersToC: false
 });
 const partyPositionsOutput = ref('');
 const wipePause = reactive({
@@ -102,6 +104,7 @@ const wipePause = reactive({
   dismissed: false,
   time: 0
 });
+const failureToasts = reactive([]);
 const devSettings = reactive({
   showPlayerHitbox: false,
   showAllHitboxes: false,
@@ -152,6 +155,9 @@ let replayPlaybackTimer;
 let manualMovementFrameId = null;
 let manualMovementLastFrameMs = 0;
 let assetLoadId = 0;
+let failureToastId = 0;
+const failureToastTimers = new Map();
+const shownFailureKeys = new Set();
 
 const selectedRoleData = computed(() => {
   if (selectedRole.value === WATCH_BOTS_ROLE_ID) {
@@ -604,6 +610,28 @@ function syncStrategyMovementSpeed() {
 
 function syncLateBotMovement() {
   encounter.setLateStrategyMovement(practiceSettings.lateBotMovement);
+}
+
+function syncTowerSpawnMode() {
+  encounter.setMechanicSettings({
+    fixedTowerMarker: practiceSettings.lockTowersToC ? 'C' : null
+  });
+}
+
+function refreshIdleMechanicState() {
+  if (encounter.status !== 'idle') {
+    return;
+  }
+
+  clearReplay();
+  clearWipePause();
+  clearFailureToasts();
+  resetPeriodicHealing();
+  encounter.resetToIdle();
+  syncMarkerEffectConfig();
+  syncStrategyMovementSpeed();
+  syncLateBotMovement();
+  drawArena();
 }
 
 function drawArena() {
@@ -1445,7 +1473,9 @@ function runTowerTest() {
 
   stopEncounterLoop();
   clearWipePause();
+  clearFailureToasts();
   resetPeriodicHealing();
+  syncTowerSpawnMode();
   encounter.resetToIdle();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
@@ -1548,6 +1578,121 @@ function printPartyPositions() {
 
   partyPositionsOutput.value = JSON.stringify(positions, null, 2);
   canvasState.feedback = 'Party positions printed in the dev menu.';
+}
+
+function showFailureToast({ key, title = 'Mechanic failed', message, elapsedSeconds = encounter.elapsedSeconds }) {
+  if (!message || shownFailureKeys.has(key)) {
+    return;
+  }
+
+  shownFailureKeys.add(key);
+
+  const toast = {
+    id: ++failureToastId,
+    title,
+    message,
+    time: formatElapsedTime(elapsedSeconds)
+  };
+
+  failureToasts.push(toast);
+
+  const timeoutId = window.setTimeout(() => {
+    removeFailureToast(toast.id);
+  }, FAILURE_TOAST_LIFETIME_MS);
+
+  failureToastTimers.set(toast.id, timeoutId);
+}
+
+function removeFailureToast(toastId) {
+  const timeoutId = failureToastTimers.get(toastId);
+
+  if (timeoutId) {
+    window.clearTimeout(timeoutId);
+    failureToastTimers.delete(toastId);
+  }
+
+  const toastIndex = failureToasts.findIndex((toast) => toast.id === toastId);
+
+  if (toastIndex >= 0) {
+    failureToasts.splice(toastIndex, 1);
+  }
+}
+
+function clearFailureToasts({ clearSeen = true } = {}) {
+  failureToastTimers.forEach((timeoutId) => window.clearTimeout(timeoutId));
+  failureToastTimers.clear();
+  failureToasts.splice(0, failureToasts.length);
+
+  if (clearSeen) {
+    shownFailureKeys.clear();
+  }
+}
+
+function createHpSnapshot() {
+  return new Map(encounter.state.players.map((player) => [player.roleId, player.hp]));
+}
+
+function syncFailureToasts(previousHp) {
+  syncEmptyTowerFailureToasts();
+  syncStackFailureToasts();
+  syncDeathFailureToasts(previousHp);
+}
+
+function syncEmptyTowerFailureToasts() {
+  const towerSnapshots = encounter.state.getMechanicData('towerSnapshots') ?? [];
+
+  towerSnapshots.forEach((snapshot) => {
+    if ((snapshot.occupantRoleIds?.length ?? 0) > 0) {
+      return;
+    }
+
+    showFailureToast({
+      key: `empty-tower-${snapshot.wave}-${snapshot.towerLabel}-${snapshot.resolvedAt}`,
+      title: 'Tower missed',
+      message: `Tower ${snapshot.towerLabel} had nobody inside.`,
+      elapsedSeconds: snapshot.resolvedAt
+    });
+  });
+}
+
+function syncStackFailureToasts() {
+  const markerResolves = encounter.state.getMechanicData('markerResolves') ?? [];
+
+  markerResolves.forEach((resolve) => {
+    if (
+      resolve.markerType !== 'stack'
+      || resolve.stackRequirementMet !== false
+      || !resolve.stackRequirement
+    ) {
+      return;
+    }
+
+    const hitCount = new Set(resolve.hitRoleIds ?? []).size;
+
+    showFailureToast({
+      key: `stack-${resolve.wave}-${resolve.towerLabel}-${resolve.roleId}-${resolve.resolvedAt}`,
+      title: 'Stack failed',
+      message: `${resolve.roleId} stack only hit ${hitCount}/${resolve.stackRequirement} players.`,
+      elapsedSeconds: resolve.resolvedAt
+    });
+  });
+}
+
+function syncDeathFailureToasts(previousHp) {
+  const killedRoleIds = encounter.state.players
+    .filter((player) => (previousHp.get(player.roleId) ?? player.hp) > 0 && player.hp <= 0)
+    .map((player) => player.roleId);
+
+  if (killedRoleIds.length === 0) {
+    return;
+  }
+
+  showFailureToast({
+    key: `death-${encounter.elapsedSeconds.toFixed(3)}-${killedRoleIds.join('-')}`,
+    title: 'Player death',
+    message: `Damage killed ${killedRoleIds.join(', ')}.`,
+    elapsedSeconds: encounter.elapsedSeconds
+  });
 }
 
 function syncControlledBot() {
@@ -1765,11 +1910,13 @@ function toggleTimer() {
     return;
   }
 
+  syncTowerSpawnMode();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
   syncLateBotMovement();
   if (encounter.status === 'complete') {
     clearWipePause();
+    clearFailureToasts();
     resetPeriodicHealing();
     encounter.resetToIdle();
     syncMarkerEffectConfig();
@@ -1778,6 +1925,7 @@ function toggleTimer() {
   }
 
   if (encounter.status === 'idle') {
+    clearFailureToasts();
     resetPeriodicHealing();
     beginReplayRecording();
   } else if (!replayState.completed && hasReplayFrames.value) {
@@ -1798,7 +1946,9 @@ function resetTimer() {
   replayState.active = false;
   replayState.recording = false;
   clearWipePause();
+  clearFailureToasts();
   resetPeriodicHealing();
+  syncTowerSpawnMode();
   encounter.resetToIdle();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
@@ -1807,8 +1957,11 @@ function resetTimer() {
 }
 
 function updateEncounter(deltaSeconds) {
+  const previousHp = createHpSnapshot();
+
   syncPeriodicLivingPlayerHeal(deltaSeconds);
   encounter.update(deltaSeconds);
+  syncFailureToasts(previousHp);
   recordReplayFrame();
 
   if (handlePotentialWipePause()) {
@@ -1986,6 +2139,14 @@ watch(
 );
 
 watch(
+  () => practiceSettings.lockTowersToC,
+  () => {
+    syncTowerSpawnMode();
+    refreshIdleMechanicState();
+  }
+);
+
+watch(
   () => devSettings.devMovement,
   (enabled) => {
     if (!enabled) {
@@ -2033,7 +2194,9 @@ watch(selectedMechanicId, (mechanicId) => {
   selectedStrategyId.value = firstStrategy.id;
   stopEncounterLoop();
   clearWipePause();
+  clearFailureToasts();
   resetPeriodicHealing();
+  syncTowerSpawnMode();
   encounter.load({
     mechanic: createMechanicById(mechanicId),
     strategy: createStrategyById(firstStrategy.id),
@@ -2053,6 +2216,7 @@ watch(selectedStrategyId, (strategyId) => {
 
   if (strategy.mechanicId === encounter.mechanic.id) {
     clearReplay();
+    clearFailureToasts();
     encounter.setStrategy(strategy);
     syncStrategyMovementSpeed();
     syncLateBotMovement();
@@ -2067,6 +2231,7 @@ onMounted(async () => {
     render: drawArena
   });
 
+  syncTowerSpawnMode();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
   syncLateBotMovement();
@@ -2082,6 +2247,7 @@ onBeforeUnmount(() => {
   encounterLoop?.dispose();
   stopManualMovementLoop();
   stopReplayPlayback();
+  clearFailureToasts();
   resizeObserver?.disconnect();
   window.removeEventListener('resize', resizeCanvas);
 });
@@ -2207,6 +2373,21 @@ onBeforeUnmount(() => {
         </label>
       </div>
     </aside>
+
+    <div v-if="failureToasts.length" class="failure-toast-stack" aria-live="assertive">
+      <article
+        v-for="toast in failureToasts"
+        :key="toast.id"
+        class="failure-toast"
+        role="alert"
+      >
+        <span>{{ toast.time }}</span>
+        <div>
+          <strong>{{ toast.title }}</strong>
+          <p>{{ toast.message }}</p>
+        </div>
+      </article>
+    </div>
 
     <main class="layout-board" aria-label="UMAD mechanic simulator">
       <section class="control-panel card-surface">
@@ -2435,6 +2616,14 @@ onBeforeUnmount(() => {
           <label class="practice-toggle">
             <input v-model="practiceSettings.lateBotMovement" type="checkbox" />
             <span>Late bot movement</span>
+          </label>
+          <label class="practice-toggle">
+            <input
+              v-model="practiceSettings.lockTowersToC"
+              type="checkbox"
+              :disabled="encounterActive"
+            />
+            <span>Force C-side towers</span>
           </label>
         </section>
 
