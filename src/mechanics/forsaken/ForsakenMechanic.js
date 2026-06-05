@@ -8,6 +8,12 @@ const ROLE_GROUPS = {
   supports: ['MT', 'OT', 'H1', 'H2'],
   dps: ['M1', 'M2', 'R1', 'R2']
 };
+const FORSAKEN_MARKER_PAIR_GROUPS = [
+  ['MT', 'H1'],
+  ['OT', 'H2'],
+  ['M1', 'R1'],
+  ['M2', 'R2']
+];
 
 const FORSAKEN_CAST_ACTION = ForsakenCast();
 const SCREEN_FLASH_ACTION = ScreenFlash(FORSAKEN_CAST_ACTION);
@@ -298,6 +304,10 @@ export class ForsakenMechanic extends BaseMechanic {
     state.setMechanicData('randomSeed', encounter?.randomSeed ?? null);
     state.setMechanicData('randomSource', randomSource);
     state.setMechanicData('previousOpeningMarkerSignature', previousOpeningMarkerSignature);
+    state.setMechanicData('openingMarkerRngOptions', {
+      forcedGroup: encounter?.mechanicSettings?.forcedOpeningMarkerGroup ?? null,
+      forcedRoleId: encounter?.mechanicSettings?.forcedOpeningMarkerRoleId ?? null
+    });
     state.setMechanicData('towerSoakCounts', {});
     state.setMechanicData('markerAssignments', {});
     state.setMechanicData('openingMarkerAssignments', null);
@@ -391,7 +401,8 @@ export class ForsakenMechanic extends BaseMechanic {
       assignments = createOpeningMarkerAssignments(
         state.players,
         getRandomSource(state),
-        state.getMechanicData('previousOpeningMarkerSignature')
+        state.getMechanicData('previousOpeningMarkerSignature'),
+        state.getMechanicData('openingMarkerRngOptions')
       );
       state.setMechanicData('openingMarkerAssignments', assignments);
       applyStoredMarkerAssignments({
@@ -1483,17 +1494,39 @@ function MarkerSpawn(flashAction) {
   };
 }
 
-export function createForsakenOpeningMarkerAssignments(players, randomSource = DEFAULT_RANDOM_SOURCE, avoidSignature = null) {
-  return createOpeningMarkerAssignments(players, randomSource, avoidSignature);
+export function createForsakenOpeningMarkerAssignments(
+  players,
+  randomSource = DEFAULT_RANDOM_SOURCE,
+  avoidSignature = null,
+  options = {}
+) {
+  return createOpeningMarkerAssignments(players, randomSource, avoidSignature, options);
 }
 
-function createOpeningMarkerAssignments(players, randomSource = DEFAULT_RANDOM_SOURCE, avoidSignature = null) {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
+function createOpeningMarkerAssignments(
+  players,
+  randomSource = DEFAULT_RANDOM_SOURCE,
+  avoidSignature = null,
+  options = {}
+) {
+  let matchingAssignment = null;
+
+  for (let attempt = 0; attempt < 64; attempt += 1) {
     const assignments = createOpeningMarkerAssignmentCandidate(players, randomSource);
+
+    if (!openingMarkerAssignmentMatchesOptions(assignments, options)) {
+      continue;
+    }
+
+    matchingAssignment ??= assignments;
 
     if (!avoidSignature || getOpeningMarkerSignature(assignments) !== avoidSignature) {
       return assignments;
     }
+  }
+
+  if (matchingAssignment) {
+    return matchingAssignment;
   }
 
   return createOpeningMarkerAssignmentCandidate(players, randomSource);
@@ -1523,6 +1556,39 @@ function createOpeningMarkerAssignmentCandidate(players, randomSource) {
     stackRoles: [supportStackRole, dpsStackRole],
     markers
   };
+}
+
+function openingMarkerAssignmentMatchesOptions(assignments, options = {}) {
+  const forcedGroup = normalizeOpeningMarkerGroup(options.forcedGroup);
+  const forcedRoleId = options.forcedRoleId ?? null;
+
+  if (!forcedGroup || !forcedRoleId) {
+    return true;
+  }
+
+  return getOpeningMarkerGroupForRole(assignments.markers, forcedRoleId) === forcedGroup;
+}
+
+function normalizeOpeningMarkerGroup(groupKey) {
+  return groupKey === 'groupA' || groupKey === 'groupB' ? groupKey : null;
+}
+
+function getOpeningMarkerGroupForRole(markers, roleId) {
+  const pair = FORSAKEN_MARKER_PAIR_GROUPS.find((roleIds) => roleIds.includes(roleId));
+
+  if (!pair) {
+    return null;
+  }
+
+  const [firstRoleId, secondRoleId] = pair;
+  const firstMarker = markers[firstRoleId];
+  const secondMarker = markers[secondRoleId];
+
+  if (!firstMarker || !secondMarker) {
+    return null;
+  }
+
+  return firstMarker === secondMarker ? 'groupB' : 'groupA';
 }
 
 function pickRandomRole(players, roleIds, randomSource = DEFAULT_RANDOM_SOURCE) {

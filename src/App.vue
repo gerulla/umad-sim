@@ -96,7 +96,8 @@ const isPlaying = ref(false);
 const resolveNoteHidden = ref(false);
 const practiceSettings = reactive({
   lateBotMovement: false,
-  lockTowersToC: false
+  lockTowersToC: false,
+  forcedOpeningGroup: null
 });
 const partyPositionsOutput = ref('');
 const wipePause = reactive({
@@ -618,10 +619,25 @@ function syncLateBotMovement() {
   encounter.setLateStrategyMovement(practiceSettings.lateBotMovement);
 }
 
-function syncTowerSpawnMode() {
+function syncMechanicPracticeSettings() {
+  const openingMarkerOptions = getOpeningMarkerRngOptions();
+
   encounter.setMechanicSettings({
-    fixedTowerMarker: practiceSettings.lockTowersToC ? 'C' : null
+    fixedTowerMarker: practiceSettings.lockTowersToC ? 'C' : null,
+    forcedOpeningMarkerGroup: openingMarkerOptions.forcedGroup,
+    forcedOpeningMarkerRoleId: openingMarkerOptions.forcedRoleId
   });
+}
+
+function getOpeningMarkerRngOptions() {
+  return {
+    forcedGroup: practiceSettings.forcedOpeningGroup,
+    forcedRoleId: getSelectedControlledRoleId()
+  };
+}
+
+function setForcedOpeningGroup(groupKey, checked) {
+  practiceSettings.forcedOpeningGroup = checked ? groupKey : null;
 }
 
 function refreshIdleMechanicState() {
@@ -1481,7 +1497,7 @@ function runTowerTest() {
   clearWipePause();
   clearFailureToasts();
   resetPeriodicHealing();
-  syncTowerSpawnMode();
+  syncMechanicPracticeSettings();
   encounter.resetToIdle();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
@@ -1490,7 +1506,9 @@ function runTowerTest() {
 
   const markerAssignments = createForsakenOpeningMarkerAssignments(
     encounter.state.players,
-    encounter.randomSource
+    encounter.randomSource,
+    null,
+    getOpeningMarkerRngOptions()
   );
 
   encounter.state.setMechanicData('openingMarkerAssignments', markerAssignments);
@@ -1916,7 +1934,7 @@ function toggleTimer() {
     return;
   }
 
-  syncTowerSpawnMode();
+  syncMechanicPracticeSettings();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
   syncLateBotMovement();
@@ -1954,7 +1972,7 @@ function resetTimer() {
   clearWipePause();
   clearFailureToasts();
   resetPeriodicHealing();
-  syncTowerSpawnMode();
+  syncMechanicPracticeSettings();
   encounter.resetToIdle();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
@@ -2116,7 +2134,15 @@ function clamp(value, min, max) {
 }
 
 watch(selectedRole, () => {
+  if (selectedRole.value === WATCH_BOTS_ROLE_ID && practiceSettings.forcedOpeningGroup) {
+    practiceSettings.forcedOpeningGroup = null;
+  }
+
   syncControlledBot();
+  syncMechanicPracticeSettings();
+  if (practiceSettings.forcedOpeningGroup) {
+    refreshIdleMechanicState();
+  }
   canvasState.feedback = selectedRole.value === WATCH_BOTS_ROLE_ID
     ? 'Watch Bots selected. Strategy movement will control the full party.'
     : `${selectedRoleData.value.label} selected. Click the arena to move that player/bot.`;
@@ -2147,7 +2173,15 @@ watch(
 watch(
   () => practiceSettings.lockTowersToC,
   () => {
-    syncTowerSpawnMode();
+    syncMechanicPracticeSettings();
+    refreshIdleMechanicState();
+  }
+);
+
+watch(
+  () => practiceSettings.forcedOpeningGroup,
+  () => {
+    syncMechanicPracticeSettings();
     refreshIdleMechanicState();
   }
 );
@@ -2202,7 +2236,7 @@ watch(selectedMechanicId, (mechanicId) => {
   clearWipePause();
   clearFailureToasts();
   resetPeriodicHealing();
-  syncTowerSpawnMode();
+  syncMechanicPracticeSettings();
   encounter.load({
     mechanic: createMechanicById(mechanicId),
     strategy: createStrategyById(firstStrategy.id),
@@ -2237,7 +2271,7 @@ onMounted(async () => {
     render: drawArena
   });
 
-  syncTowerSpawnMode();
+  syncMechanicPracticeSettings();
   syncMarkerEffectConfig();
   syncStrategyMovementSpeed();
   syncLateBotMovement();
@@ -2641,6 +2675,24 @@ onBeforeUnmount(() => {
               :disabled="encounterActive"
             />
             <span>Force C-side towers</span>
+          </label>
+          <label class="practice-toggle">
+            <input
+              type="checkbox"
+              :checked="practiceSettings.forcedOpeningGroup === 'groupA'"
+              :disabled="encounterActive || selectedRole === WATCH_BOTS_ROLE_ID"
+              @change="setForcedOpeningGroup('groupA', $event.target.checked)"
+            />
+            <span>Force Group A RNG</span>
+          </label>
+          <label class="practice-toggle">
+            <input
+              type="checkbox"
+              :checked="practiceSettings.forcedOpeningGroup === 'groupB'"
+              :disabled="encounterActive || selectedRole === WATCH_BOTS_ROLE_ID"
+              @change="setForcedOpeningGroup('groupB', $event.target.checked)"
+            />
+            <span>Force Group B RNG</span>
           </label>
         </section>
 
