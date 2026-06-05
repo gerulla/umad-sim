@@ -22,7 +22,12 @@ export function getStrategyOptionsForMechanic(mechanicId) {
   return Object.entries(STRATEGY_FACTORIES)
     .map(([id, factory]) => {
       const strategy = factory();
-      return { id, label: strategy.label, mechanicId: strategy.mechanicId };
+      return {
+        id,
+        label: strategy.label,
+        mechanicId: strategy.mechanicId,
+        raidplanUrl: strategy.raidplanUrl
+      };
     })
     .filter((strategy) => strategy.mechanicId === mechanicId);
 }

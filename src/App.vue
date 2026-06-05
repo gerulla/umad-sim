@@ -167,6 +167,12 @@ const selectedRoleData = computed(() => {
   return roles.find((role) => role.id === selectedRole.value) || roles[0];
 });
 
+const selectedStrategyData = computed(() => {
+  return strategyOptions.value.find((strategy) => strategy.id === selectedStrategyId.value) ?? null;
+});
+
+const selectedRaidplanUrl = computed(() => selectedStrategyData.value?.raidplanUrl ?? null);
+
 const currentReplayFrame = computed(() => {
   if (!replayState.active) {
     return null;
@@ -2441,6 +2447,17 @@ onBeforeUnmount(() => {
             </option>
           </select>
         </label>
+      </section>
+
+      <section v-if="selectedRaidplanUrl" class="raidplan-card card-surface" aria-label="Selected strategy raidplan">
+        <p class="eyebrow">Raidplan</p>
+        <a
+          :href="selectedRaidplanUrl"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {{ selectedRaidplanUrl }}
+        </a>
       </section>
 
       <aside class="role-panel-stack" :aria-label="encounterActive ? 'Party list and timeline' : 'Select role and timeline'">

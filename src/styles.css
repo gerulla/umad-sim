@@ -229,9 +229,11 @@ select {
 .control-panel,
 .role-panel-stack,
 .arena-panel,
-.info-panel-stack {
+.info-panel-stack,
+.raidplan-card {
   --panel-gap: 16px;
   --arena-half: 37.5vh;
+  --top-bar-half: max(var(--arena-half), 510px);
 }
 
 .control-panel {
@@ -292,6 +294,39 @@ select {
 }
 
 .top-link:hover strong {
+  color: #f8f7ff;
+}
+
+.raidplan-card {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: calc(50% + var(--top-bar-half) + var(--panel-gap));
+  display: grid;
+  grid-template-rows: 16px minmax(32px, auto);
+  align-items: center;
+  width: 336px;
+  min-height: 68px;
+  padding: 10px 12px;
+}
+
+.raidplan-card .eyebrow {
+  display: flex;
+  align-items: center;
+  height: 16px;
+  margin: 0;
+  line-height: 1;
+}
+
+.raidplan-card a {
+  overflow-wrap: anywhere;
+  color: #c4b5fd;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.raidplan-card a:hover {
   color: #f8f7ff;
 }
 

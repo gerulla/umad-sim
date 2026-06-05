@@ -204,14 +204,16 @@ export class LPDUStrategy extends BaseStrategy {
   constructor({
     id = 'lpdu',
     label = 'LPDU (P3Z)',
-    setOneStackMode = SET_ONE_STACK_MODES.buddy
+    setOneStackMode = SET_ONE_STACK_MODES.buddy,
+    raidplanUrl = 'https://raidplan.io/plan/lZWqxfxvyhF9sp3Z'
   } = {}) {
     super({
       id,
       label,
       mechanicId: 'forsaken',
       waymarkers: LPDU_WAYMARKERS,
-      movementPlan: LPDU_MOVEMENT_PLAN
+      movementPlan: LPDU_MOVEMENT_PLAN,
+      raidplanUrl
     });
     this.setOneStackMode = setOneStackMode;
   }
@@ -331,7 +333,8 @@ export class LPDUFinalTwoStrategy extends LPDUStrategy {
     super({
       id: 'lpdu-final-2',
       label: 'LPDU (SzIZ)',
-      setOneStackMode: SET_ONE_STACK_MODES.supportDpsPriority
+      setOneStackMode: SET_ONE_STACK_MODES.supportDpsPriority,
+      raidplanUrl: 'https://raidplan.io/plan/Ri690f0x_KGtSziZ'
     });
   }
 }
