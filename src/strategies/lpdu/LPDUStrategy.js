@@ -591,7 +591,8 @@ function getOddTowerSlotAssignments(state, waveNumber) {
     activeConeRoleId,
     activeAoeRoleId,
     stackRoleIds,
-    storedMarkers
+    storedMarkers,
+    waveNumber
   });
 
   return assignments;
@@ -637,8 +638,18 @@ function assignOddTowerStackBuddySlots({
   activeConeRoleId,
   activeAoeRoleId,
   stackRoleIds,
-  storedMarkers
+  storedMarkers,
+  waveNumber
 }) {
+  const supportStackRoleId = getSupportStackRoleId(stackRoleIds);
+  const dpsStackRoleId = getDpsStackRoleId(stackRoleIds);
+
+  if (waveNumber !== 1 && supportStackRoleId && dpsStackRoleId) {
+    assignSlot(assignments, supportStackRoleId, ODD_TOWER_SLOT_IDS.coneStackBuddy);
+    assignSlot(assignments, dpsStackRoleId, ODD_TOWER_SLOT_IDS.aoeStackBuddy);
+    return;
+  }
+
   const coneBuddyRoleId = getBuddyRoleId(activeConeRoleId);
   const aoeBuddyRoleId = getBuddyRoleId(activeAoeRoleId);
   const assignedStackRoleIds = new Set();
@@ -660,11 +671,11 @@ function assignOddTowerStackBuddySlots({
   }
 
   if (unassignedStackRoleIds.length >= 2) {
-    const adjustingRoleId = getMeleeAdjustingStackRoleId(unassignedStackRoleIds);
-    const coneStackRoleId = unassignedStackRoleIds.find((roleId) => roleId !== adjustingRoleId);
+    const aoeStackRoleId = getRightSideStackRoleId(unassignedStackRoleIds);
+    const coneStackRoleId = unassignedStackRoleIds.find((roleId) => roleId !== aoeStackRoleId);
 
     assignSlot(assignments, coneStackRoleId, ODD_TOWER_SLOT_IDS.coneStackBuddy);
-    assignSlot(assignments, adjustingRoleId, ODD_TOWER_SLOT_IDS.aoeStackBuddy);
+    assignSlot(assignments, aoeStackRoleId, ODD_TOWER_SLOT_IDS.aoeStackBuddy);
     return;
   }
 
@@ -683,8 +694,19 @@ function isActiveStackRole(roleId, activeRoles, storedMarkers) {
   return Boolean(roleId && activeRoles.includes(roleId) && storedMarkers[roleId] === 'stack');
 }
 
-function getMeleeAdjustingStackRoleId(stackRoleIds) {
+function getSupportStackRoleId(stackRoleIds) {
+  return findFirstRole(stackRoleIds, ROLE_CATEGORIES.healers)
+    ?? findFirstRole(stackRoleIds, ROLE_CATEGORIES.tanks);
+}
+
+function getDpsStackRoleId(stackRoleIds) {
+  return findFirstRole(stackRoleIds, ROLE_CATEGORIES.melee)
+    ?? findFirstRole(stackRoleIds, ROLE_CATEGORIES.ranged);
+}
+
+function getRightSideStackRoleId(stackRoleIds) {
   return findFirstRole(stackRoleIds, ROLE_CATEGORIES.tanks)
+    ?? findFirstRole(stackRoleIds, ROLE_CATEGORIES.ranged)
     ?? findFirstRole(stackRoleIds, ROLE_CATEGORIES.melee)
     ?? stackRoleIds[0];
 }
@@ -735,7 +757,7 @@ function assignEvenTowerRemainingSlots({ assignments, activeTankRoleId, activeMe
       return;
     }
 
-    const preferredRoleId = slot.towerType === 'cone' ? activeMeleeRoleId : activeTankRoleId;
+    const preferredRoleId = slot.towerType === 'cone' ? activeTankRoleId : activeMeleeRoleId;
     const roleId = matchingRoleIds.includes(preferredRoleId) ? preferredRoleId : matchingRoleIds[0];
 
     assignSlot(assignments, roleId, slot.slotId);
