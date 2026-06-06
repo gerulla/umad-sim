@@ -106,6 +106,8 @@ const wipePause = reactive({
   time: 0
 });
 const failureToasts = reactive([]);
+const mobileActivePanel = ref('run');
+const mobileDrawerOpen = ref(false);
 const devSettings = reactive({
   showPlayerHitbox: false,
   showAllHitboxes: false,
@@ -173,6 +175,18 @@ const selectedStrategyData = computed(() => {
 });
 
 const selectedRaidplanUrl = computed(() => selectedStrategyData.value?.raidplanUrl ?? null);
+
+const mobilePanelItems = computed(() => [
+  { id: 'setup', label: 'Setup' },
+  { id: 'party', label: encounterActive.value ? 'Party' : 'Roles' },
+  { id: 'run', label: 'Run' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'timeline', label: 'Timeline' }
+]);
+
+const mobileActivePanelLabel = computed(() => (
+  mobilePanelItems.value.find((item) => item.id === mobileActivePanel.value)?.label ?? 'Options'
+));
 
 const currentReplayFrame = computed(() => {
   if (!replayState.active) {
@@ -348,6 +362,20 @@ const replayStatusLabel = computed(() => {
 });
 
 const replayActionLabel = computed(() => (replayState.playing ? 'Pause' : 'Play'));
+
+function setMobilePanel(panelId) {
+  if (mobileActivePanel.value === panelId && mobileDrawerOpen.value) {
+    mobileDrawerOpen.value = false;
+    return;
+  }
+
+  mobileActivePanel.value = panelId;
+  mobileDrawerOpen.value = true;
+}
+
+function closeMobileDrawer() {
+  mobileDrawerOpen.value = false;
+}
 
 function getSelectedControlledRoleId() {
   return selectedRole.value === WATCH_BOTS_ROLE_ID ? null : selectedRole.value;
@@ -2501,7 +2529,21 @@ onBeforeUnmount(() => {
             <h2 class="text-lg font-black text-slate-50">Select Role</h2>
           </div>
 
-          <div v-if="!encounterActive" class="grid grid-cols-2 gap-3">
+          <label v-if="!encounterActive" class="mobile-role-select control-field">
+            <span>Role</span>
+            <select v-model="selectedRole" aria-label="Select role">
+              <option :value="WATCH_BOTS_ROLE_ID">{{ watchBotsRole.label }}</option>
+              <option
+                v-for="role in roles"
+                :key="role.id"
+                :value="role.id"
+              >
+                {{ role.label }} - {{ role.group }}
+              </option>
+            </select>
+          </label>
+
+          <div v-if="!encounterActive" class="desktop-role-grid grid grid-cols-2 gap-3">
             <button
               type="button"
               class="role-button watch-bots-role col-span-2"
@@ -2819,5 +2861,398 @@ onBeforeUnmount(() => {
 
       </aside>
     </main>
+
+    <section
+      class="mobile-options-drawer"
+      :class="{ open: mobileDrawerOpen }"
+      :aria-hidden="!mobileDrawerOpen"
+      aria-label="Mobile simulator options"
+    >
+      <div class="mobile-drawer-header">
+        <p class="eyebrow">{{ mobileActivePanelLabel }}</p>
+        <button type="button" class="mobile-close-button" @click="closeMobileDrawer">
+          Close
+        </button>
+      </div>
+
+      <div v-show="mobileActivePanel === 'setup'" class="mobile-drawer-panel">
+        <div class="mobile-meta-grid">
+          <div>
+            <p class="eyebrow">UMAD</p>
+            <strong>Mechanic Sim</strong>
+          </div>
+          <div>
+            <p class="eyebrow">Built By</p>
+            <strong>Your Local Grey-Parser</strong>
+          </div>
+          <a
+            href="https://discord.gg/3HWQfqY7B9"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <p class="eyebrow">Complain Here</p>
+            <strong>
+              <svg class="discord-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M18.6 5.2a15 15 0 0 0-3.7-1.1l-.5 1a13.7 13.7 0 0 0-4.8 0l-.5-1a15 15 0 0 0-3.7 1.1C3.1 8.6 2.5 12 2.8 15.4a15.1 15.1 0 0 0 4.6 2.3l1-1.6a9 9 0 0 1-1.6-.8l.4-.3a10.8 10.8 0 0 0 9.6 0l.4.3a9 9 0 0 1-1.6.8l1 1.6a15.1 15.1 0 0 0 4.6-2.3c.4-4-.7-7.3-3.6-10.2ZM9.1 13.8c-.9 0-1.6-.8-1.6-1.8s.7-1.8 1.6-1.8 1.6.8 1.6 1.8-.7 1.8-1.6 1.8Zm5.8 0c-.9 0-1.6-.8-1.6-1.8s.7-1.8 1.6-1.8 1.6.8 1.6 1.8-.7 1.8-1.6 1.8Z" />
+              </svg>
+              Discord
+            </strong>
+          </a>
+        </div>
+
+        <div class="mobile-select-grid">
+          <label class="control-field">
+            <span>Mechanic</span>
+            <select v-model="selectedMechanicId" :disabled="encounterActive">
+              <option
+                v-for="mechanic in mechanicOptions"
+                :key="mechanic.id"
+                :value="mechanic.id"
+              >
+                {{ mechanic.label }}
+              </option>
+            </select>
+          </label>
+
+          <label class="control-field">
+            <span>Strategy</span>
+            <select v-model="selectedStrategyId" :disabled="encounterActive">
+              <option
+                v-for="strategy in strategyOptions"
+                :key="strategy.id"
+                :value="strategy.id"
+              >
+                {{ strategy.label }}
+              </option>
+            </select>
+          </label>
+        </div>
+
+        <div v-if="selectedRaidplanUrl" class="mobile-raidplan">
+          <p class="eyebrow">Raidplan</p>
+          <a :href="selectedRaidplanUrl" target="_blank" rel="noreferrer">
+            {{ selectedRaidplanUrl }}
+          </a>
+        </div>
+      </div>
+
+      <div v-show="mobileActivePanel === 'party'" class="mobile-drawer-panel">
+        <template v-if="!encounterActive">
+          <label class="control-field">
+            <span>Role</span>
+            <select v-model="selectedRole" aria-label="Select role">
+              <option :value="WATCH_BOTS_ROLE_ID">{{ watchBotsRole.label }}</option>
+              <option
+                v-for="role in roles"
+                :key="role.id"
+                :value="role.id"
+              >
+                {{ role.label }} - {{ role.group }}
+              </option>
+            </select>
+          </label>
+
+          <section class="mobile-option-group role-summary">
+            <span
+              class="role-summary-icon"
+              :class="{ 'watch-bots-icon': selectedRoleData.id === WATCH_BOTS_ROLE_ID }"
+              :style="{ '--role-color': selectedRoleData.color }"
+            >
+              <img
+                v-if="selectedRoleData.icon"
+                :src="selectedRoleData.icon"
+                :alt="`${selectedRoleData.group} icon`"
+              />
+              <span>{{ selectedRoleData.badge }}</span>
+            </span>
+            <div class="min-w-0">
+              <p class="eyebrow">Selected role</p>
+              <h2 class="truncate text-base font-black text-slate-50">
+                {{ selectedRoleData.label }}
+                <span v-if="selectedRoleData.id !== WATCH_BOTS_ROLE_ID"> - {{ selectedRoleData.group }}</span>
+              </h2>
+            </div>
+          </section>
+        </template>
+
+        <div v-else class="party-list-shell">
+          <div class="party-list" aria-label="Party members">
+            <article
+              v-for="row in partyListRows"
+              :key="row.bot.roleId"
+              class="party-row"
+              :class="{ player: row.isPlayer }"
+              :style="{ '--role-color': row.role.color }"
+            >
+              <span class="party-role-icon" aria-hidden="true">
+                <img :src="row.role.icon" :alt="`${row.role.group} icon`" />
+              </span>
+              <div class="party-frame">
+                <div class="party-header">
+                  <strong>{{ row.isPlayer ? 'PLAYER' : row.role.label }}</strong>
+                  <span v-if="row.isPlayer">{{ row.role.label }}</span>
+                </div>
+                <div class="hp-track" aria-label="HP">
+                  <span class="hp-fill" :style="{ width: `${row.hpPercent}%` }" />
+                </div>
+              </div>
+              <div class="party-debuffs" aria-label="Debuffs">
+                <span
+                  v-for="debuff in row.debuffs"
+                  :key="debuff.id"
+                  class="party-debuff-icon"
+                  :class="debuff.iconType"
+                  :aria-label="`${debuff.label} ${debuff.stacks}`"
+                  :title="`${debuff.label} x${debuff.stacks}`"
+                >
+                  <img v-if="debuff.icon" :src="debuff.icon" :alt="debuff.label" />
+                  <span>{{ debuff.stacks }}</span>
+                </span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div v-show="mobileActivePanel === 'run'" class="mobile-drawer-panel">
+        <section class="mobile-option-group">
+          <p class="eyebrow">Timer</p>
+          <div class="mobile-timer-row">
+            <strong class="timer-value">{{ elapsedLabel }}</strong>
+            <button
+              type="button"
+              class="panel-button timer-action"
+              :class="isPlaying ? 'pause' : 'start'"
+              @click="toggleTimer"
+            >
+              {{ timerActionLabel }}
+            </button>
+            <button type="button" class="panel-button timer-action reset" @click="resetTimer">
+              Reset
+            </button>
+          </div>
+          <label class="practice-toggle">
+            <input v-model="practiceSettings.lateBotMovement" type="checkbox" />
+            <span>Late bot movement</span>
+          </label>
+          <label class="practice-toggle">
+            <input
+              v-model="practiceSettings.lockTowersToC"
+              type="checkbox"
+              :disabled="encounterActive"
+            />
+            <span>Force C-side towers</span>
+          </label>
+          <label class="practice-toggle">
+            <input
+              type="checkbox"
+              :checked="practiceSettings.forcedOpeningGroup === 'groupA'"
+              :disabled="encounterActive || selectedRole === WATCH_BOTS_ROLE_ID"
+              @change="setForcedOpeningGroup('groupA', $event.target.checked)"
+            />
+            <span>Force Group A RNG</span>
+          </label>
+          <label class="practice-toggle">
+            <input
+              type="checkbox"
+              :checked="practiceSettings.forcedOpeningGroup === 'groupB'"
+              :disabled="encounterActive || selectedRole === WATCH_BOTS_ROLE_ID"
+              @change="setForcedOpeningGroup('groupB', $event.target.checked)"
+            />
+            <span>Force Group B RNG</span>
+          </label>
+        </section>
+
+        <section class="mobile-option-group replay-card">
+          <div class="replay-card-header">
+            <div>
+              <p class="eyebrow">Replay</p>
+              <strong>{{ replayStatusLabel }}</strong>
+            </div>
+            <button
+              type="button"
+              class="panel-button replay-play"
+              :disabled="!hasReplayFrames"
+              @click="toggleReplayPlayback"
+            >
+              {{ replayActionLabel }}
+            </button>
+          </div>
+          <input
+            v-model.number="replayState.index"
+            class="replay-slider"
+            type="range"
+            min="0"
+            :max="replayMaxIndex"
+            step="1"
+            :disabled="!hasReplayFrames"
+            aria-label="Replay scrubber"
+            @input="seekReplay"
+          />
+          <div class="replay-time-row">
+            <span>{{ replayCurrentLabel }}</span>
+            <span>{{ replayDurationLabel }}</span>
+          </div>
+          <div class="replay-actions">
+            <button
+              type="button"
+              class="panel-button"
+              :disabled="!hasReplayFrames"
+              @click="jumpReplayToStart"
+            >
+              Start
+            </button>
+            <button
+              type="button"
+              class="panel-button"
+              :disabled="!replayState.active"
+              @click="exitReplay"
+            >
+              Live
+            </button>
+          </div>
+        </section>
+
+        <section v-if="wipePause.active" class="mobile-option-group wipe-card">
+          <p class="eyebrow">Party KO</p>
+          <p class="mt-2 text-sm leading-6 text-slate-200">
+            All HP reached 0 at {{ formatElapsedTime(wipePause.time) }}.
+          </p>
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" class="panel-button wipe-continue" @click="continueAfterWipe">
+              Keep Going
+            </button>
+            <button type="button" class="panel-button timer-action reset" @click="resetTimer">
+              Reset
+            </button>
+          </div>
+        </section>
+
+        <section class="mobile-option-group">
+          <p class="eyebrow">Current call</p>
+          <p class="mt-2 text-sm leading-6 text-slate-200">{{ selectedStep.callout }}</p>
+        </section>
+      </div>
+
+      <div v-show="mobileActivePanel === 'notes'" class="mobile-drawer-panel">
+        <section class="resolve-note-card">
+          <div class="resolve-note-header">
+            <p class="eyebrow">Resolve note</p>
+            <button
+              type="button"
+              class="resolve-hide-button"
+              @click="resolveNoteHidden = !resolveNoteHidden"
+            >
+              {{ resolveNoteHidden ? 'Show' : 'Hide' }}
+            </button>
+          </div>
+
+          <div class="resolve-note-body" :class="{ 'is-blurred': resolveNoteHidden }">
+            <div class="resolve-progress" aria-label="Tower group soak sequence">
+              <span
+                v-for="(group, index) in visibleResolveDisplayData.soakSequence"
+                :key="`${group}-${index}`"
+                :class="{ active: index === visibleResolveDisplayData.activeTowerIndex }"
+              >
+                {{ group }}
+              </span>
+            </div>
+
+            <div class="resolve-groups">
+              <div>
+                <span>Group A</span>
+                <strong>{{ visibleResolveDisplayData.groupsReady ? visibleResolveDisplayData.groups.groupA.join('') : 'Pending' }}</strong>
+              </div>
+              <div>
+                <span>Group B</span>
+                <strong>{{ visibleResolveDisplayData.groupsReady ? visibleResolveDisplayData.groups.groupB.join('') : 'Pending' }}</strong>
+              </div>
+            </div>
+
+            <table class="resolve-marker-table">
+              <thead>
+                <tr>
+                  <th>Role</th>
+                  <th>Holding</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in visibleResolveDisplayData.markerRows" :key="row.roleId">
+                  <th>{{ row.roleId }}</th>
+                  <td :class="`marker-${row.markerType}`">{{ row.markerLabel }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div v-show="mobileActivePanel === 'timeline'" class="mobile-drawer-panel">
+        <section class="timeline-card">
+          <p class="eyebrow">Timeline</p>
+          <div class="timeline-list mt-3" aria-label="Mechanic timeline">
+            <div
+              v-for="(step, index) in timelineItems"
+              :key="step.id"
+              :class="{ active: displayStatus === 'running' && displayCurrentActionIndex === index }"
+            >
+              <span>{{ formatTime(step.time) }}</span>
+              <strong>{{ step.title }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="mobile-option-group controlled-bot-card">
+          <p class="eyebrow">Controlled bot</p>
+          <p class="mt-2 text-sm leading-6 text-slate-200">{{ canvasState.feedback }}</p>
+          <button type="button" class="panel-button mt-3 w-full" @click="resetBotsToSpawnCircle">
+            Reset bot positions
+          </button>
+        </section>
+      </div>
+    </section>
+
+    <nav class="mobile-bottom-nav" aria-label="Mobile simulator navigation">
+      <button
+        v-for="item in mobilePanelItems"
+        :key="item.id"
+        type="button"
+        :class="{ active: mobileDrawerOpen && mobileActivePanel === item.id }"
+        :aria-expanded="mobileDrawerOpen && mobileActivePanel === item.id"
+        @click="setMobilePanel(item.id)"
+      >
+        <svg class="mobile-nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <g v-if="item.id === 'setup'">
+            <path d="M4 7.5h16" />
+            <path d="M4 16.5h16" />
+            <circle cx="9" cy="7.5" r="2" />
+            <circle cx="15" cy="16.5" r="2" />
+          </g>
+          <g v-else-if="item.id === 'party'">
+            <circle cx="8" cy="8" r="3" />
+            <circle cx="16" cy="8" r="3" />
+            <path d="M3.5 19c.7-3.2 2.3-5 4.5-5s3.8 1.8 4.5 5" />
+            <path d="M11.5 19c.7-3.2 2.3-5 4.5-5s3.8 1.8 4.5 5" />
+          </g>
+          <g v-else-if="item.id === 'run'">
+            <path d="M8 5.5v13l10-6.5-10-6.5Z" />
+          </g>
+          <g v-else-if="item.id === 'notes'">
+            <path d="M7 4.5h10l2 2v13H5v-15h2Z" />
+            <path d="M8 10h8" />
+            <path d="M8 14h5" />
+          </g>
+          <g v-else>
+            <path d="M5 6h14" />
+            <path d="M5 12h14" />
+            <path d="M5 18h14" />
+            <circle cx="8" cy="6" r="1.5" />
+            <circle cx="14" cy="12" r="1.5" />
+            <circle cx="11" cy="18" r="1.5" />
+          </g>
+        </svg>
+        <span>{{ item.label }}</span>
+      </button>
+    </nav>
   </div>
 </template>
