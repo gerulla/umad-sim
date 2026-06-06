@@ -87,6 +87,10 @@ const D_FACING_TOWER_CENTERS = {
   cone: { x: 0.358, y: 0.385 },
   aoe: { x: 0.358, y: 0.615 }
 };
+const C_FACING_TOWER_CENTERS = {
+  cone: { x: 0.385, y: 0.642 },
+  aoe: { x: 0.615, y: 0.642 }
+};
 const ONE_FACING_TOWER_CENTERS = {
   cone: { x: 0.481, y: 0.318 },
   aoe: { x: 0.318, y: 0.481 }
@@ -122,6 +126,12 @@ const ODD_TOWER_D_FACING_SLOT_POSITIONS = {
   [ODD_TOWER_SLOT_IDS.dpsHelper1]: { x: 0.301, y: 0.519 },
   [ODD_TOWER_SLOT_IDS.dpsHelper2]: { x: 0.262, y: 0.549 }
 };
+const P3Z_ODD_TOWER_C_FACING_SLOT_POSITIONS = {
+  [ODD_TOWER_SLOT_IDS.tankHelper]: { x: 0.465, y: 0.57 },
+  [ODD_TOWER_SLOT_IDS.healerHelper]: { x: 0.379, y: 0.756 },
+  [ODD_TOWER_SLOT_IDS.activeCone]: { x: 0.404, y: 0.698 },
+  [ODD_TOWER_SLOT_IDS.coneStackBuddy]: { x: 0.382, y: 0.627 }
+};
 const EVEN_TOWER_ONE_FACING_SLOT_POSITIONS = {
   [EVEN_TOWER_SLOT_IDS.tankHelper]: { x: 0.64, y: 0.491 },
   [EVEN_TOWER_SLOT_IDS.healerHelper]: { x: 0.595, y: 0.299 },
@@ -131,6 +141,10 @@ const EVEN_TOWER_ONE_FACING_SLOT_POSITIONS = {
   [EVEN_TOWER_SLOT_IDS.coneTowerAoe]: { x: 0.447, y: 0.253 },
   [EVEN_TOWER_SLOT_IDS.circleTowerCleave]: { x: 0.376, y: 0.507 },
   [EVEN_TOWER_SLOT_IDS.circleTowerAoe]: { x: 0.264, y: 0.445 }
+};
+const P3Z_EVEN_TOWER_ONE_FACING_SLOT_POSITIONS = {
+  [EVEN_TOWER_SLOT_IDS.healerHelper]: { x: 0.58, y: 0.261 },
+  [EVEN_TOWER_SLOT_IDS.dpsHelper2]: { x: 0.289, y: 0.582 }
 };
 const PAST_END_A_FACING_BAIT_POSITIONS = {
   MT: { x: 0.502, y: 0.33 },
@@ -167,11 +181,27 @@ const ODD_TOWER_SLOT_POLAR_OFFSETS = mapTowerSlotPolarOffsets(
   ODD_TOWER_SLOT_TOWER_TYPES,
   D_FACING_TOWER_CENTERS
 );
+const P3Z_ODD_TOWER_SLOT_POLAR_OFFSETS = {
+  ...ODD_TOWER_SLOT_POLAR_OFFSETS,
+  ...mapTowerSlotPolarOffsets(
+    P3Z_ODD_TOWER_C_FACING_SLOT_POSITIONS,
+    ODD_TOWER_SLOT_TOWER_TYPES,
+    C_FACING_TOWER_CENTERS
+  )
+};
 const EVEN_TOWER_SLOT_POLAR_OFFSETS = mapTowerSlotPolarOffsets(
   EVEN_TOWER_ONE_FACING_SLOT_POSITIONS,
   EVEN_TOWER_SLOT_TOWER_TYPES,
   ONE_FACING_TOWER_CENTERS
 );
+const P3Z_EVEN_TOWER_SLOT_POLAR_OFFSETS = {
+  ...EVEN_TOWER_SLOT_POLAR_OFFSETS,
+  ...mapTowerSlotPolarOffsets(
+    P3Z_EVEN_TOWER_ONE_FACING_SLOT_POSITIONS,
+    EVEN_TOWER_SLOT_TOWER_TYPES,
+    ONE_FACING_TOWER_CENTERS
+  )
+};
 const PAST_END_BAIT_POLAR_OFFSETS = mapBossRelativePolarOffsets(PAST_END_A_FACING_BAIT_POSITIONS);
 const FUTURE_END_BAIT_POLAR_OFFSETS = mapBossRelativePolarOffsets(FUTURE_END_A_FACING_BAIT_POSITIONS);
 const FINAL_SPREAD_BOSS_OFFSETS = mapBossRelativeOffsets(FINAL_SPREAD_BOSS_RELATIVE_POSITIONS);
@@ -205,7 +235,9 @@ export class LPDUStrategy extends BaseStrategy {
     id = 'lpdu',
     label = 'LPDU (P3Z)',
     setOneStackMode = SET_ONE_STACK_MODES.buddy,
-    raidplanUrl = 'https://raidplan.io/plan/lZWqxfxvyhF9sp3Z'
+    raidplanUrl = 'https://raidplan.io/plan/lZWqxfxvyhF9sp3Z',
+    oddTowerSlotPolarOffsets = P3Z_ODD_TOWER_SLOT_POLAR_OFFSETS,
+    evenTowerSlotPolarOffsets = P3Z_EVEN_TOWER_SLOT_POLAR_OFFSETS
   } = {}) {
     super({
       id,
@@ -216,6 +248,8 @@ export class LPDUStrategy extends BaseStrategy {
       raidplanUrl
     });
     this.setOneStackMode = setOneStackMode;
+    this.oddTowerSlotPolarOffsets = oddTowerSlotPolarOffsets;
+    this.evenTowerSlotPolarOffsets = evenTowerSlotPolarOffsets;
   }
 
   resolveAction(action, state) {
@@ -225,7 +259,7 @@ export class LPDUStrategy extends BaseStrategy {
         actionId: action.id,
         mode: action.type,
         oddTower: getOddTowerAssignmentRowsForAction(action, state, this),
-        evenTower: getEvenTowerAssignmentRowsForAction(action, state),
+        evenTower: getEvenTowerAssignmentRowsForAction(action, state, this),
         bait: getBaitAssignmentRowsForAction(action, state),
         finalSpread: getFinalSpreadAssignmentRowsForAction(action, state)
       },
@@ -256,7 +290,12 @@ export class LPDUStrategy extends BaseStrategy {
     return Object.entries(slotAssignments).map(([roleId, slotId]) => ({
       roleId,
       slotId,
-      ...resolveTowerSlotPosition(slotId, towerAnchors)
+      ...resolveTowerSlotPosition(
+        slotId,
+        towerAnchors,
+        ODD_TOWER_SLOT_TOWER_TYPES,
+        this.oddTowerSlotPolarOffsets
+      )
     }));
   }
 
@@ -279,7 +318,7 @@ export class LPDUStrategy extends BaseStrategy {
         slotId,
         towerAnchors,
         EVEN_TOWER_SLOT_TOWER_TYPES,
-        EVEN_TOWER_SLOT_POLAR_OFFSETS
+        this.evenTowerSlotPolarOffsets
       )
     }));
   }
@@ -305,7 +344,7 @@ export class LPDUStrategy extends BaseStrategy {
     }
 
     if (action?.type === 'tower-wave' && EVEN_TOWER_WAVES.includes(action.payload?.wave)) {
-      return getEvenTowerResolveNote(state, action.payload.wave);
+      return getEvenTowerResolveNote(state, action.payload.wave, this);
     }
 
     if (action?.type === 'clone-spawn' && EVEN_TOWER_WAVES.includes(action.payload?.wave)) {
@@ -334,7 +373,9 @@ export class LPDUFinalTwoStrategy extends LPDUStrategy {
       id: 'lpdu-final-2',
       label: 'LPDU (SzIZ)',
       setOneStackMode: SET_ONE_STACK_MODES.supportDpsPriority,
-      raidplanUrl: 'https://raidplan.io/plan/Ri690f0x_KGtSziZ'
+      raidplanUrl: 'https://raidplan.io/plan/Ri690f0x_KGtSziZ',
+      oddTowerSlotPolarOffsets: ODD_TOWER_SLOT_POLAR_OFFSETS,
+      evenTowerSlotPolarOffsets: EVEN_TOWER_SLOT_POLAR_OFFSETS
     });
   }
 }
@@ -514,11 +555,16 @@ function getOddTowerRolePositions({ state, strategy }, waveNumber) {
   return Object.entries(slotAssignments).map(([roleId, slotId]) => ({
     roleId,
     slotId,
-    ...resolveTowerSlotPosition(slotId, towerAnchors)
+    ...resolveTowerSlotPosition(
+      slotId,
+      towerAnchors,
+      ODD_TOWER_SLOT_TOWER_TYPES,
+      getOddTowerSlotPolarOffsets(strategy)
+    )
   }));
 }
 
-function getEvenTowerRolePositions({ state }, waveNumber) {
+function getEvenTowerRolePositions({ state, strategy }, waveNumber) {
   const towerWave = getTowerWave(state, waveNumber);
   const slotAssignments = getEvenTowerSlotAssignments(state, waveNumber);
 
@@ -535,7 +581,7 @@ function getEvenTowerRolePositions({ state }, waveNumber) {
       slotId,
       towerAnchors,
       EVEN_TOWER_SLOT_TOWER_TYPES,
-      EVEN_TOWER_SLOT_POLAR_OFFSETS
+      getEvenTowerSlotPolarOffsets(strategy)
     )
   }));
 }
@@ -720,6 +766,14 @@ function getSetOneStackMode(strategy) {
   return strategy?.setOneStackMode ?? SET_ONE_STACK_MODES.buddy;
 }
 
+function getOddTowerSlotPolarOffsets(strategy) {
+  return strategy?.oddTowerSlotPolarOffsets ?? ODD_TOWER_SLOT_POLAR_OFFSETS;
+}
+
+function getEvenTowerSlotPolarOffsets(strategy) {
+  return strategy?.evenTowerSlotPolarOffsets ?? EVEN_TOWER_SLOT_POLAR_OFFSETS;
+}
+
 function isActiveStackRole(roleId, activeRoles, storedMarkers) {
   return Boolean(roleId && activeRoles.includes(roleId) && storedMarkers[roleId] === 'stack');
 }
@@ -898,7 +952,7 @@ function getOddTowerResolveNote(state, waveNumber, strategy = null) {
   ].join('\n');
 }
 
-function getEvenTowerResolveNote(state, waveNumber) {
+function getEvenTowerResolveNote(state, waveNumber, strategy = null) {
   const slotAssignments = getEvenTowerSlotAssignments(state, waveNumber);
 
   if (!slotAssignments) {
@@ -909,7 +963,7 @@ function getEvenTowerResolveNote(state, waveNumber) {
   const slotRoles = Object.fromEntries(
     Object.entries(slotAssignments).map(([roleId, slotId]) => [slotId, roleId])
   );
-  const slotPositions = getEvenTowerSlotPositionMap(state, waveNumber);
+  const slotPositions = getEvenTowerSlotPositionMap(state, waveNumber, strategy);
 
   return [
     `Tower ${waveNumber}: ${helperGroup} helps`,
@@ -1014,7 +1068,7 @@ function getOddTowerAssignmentRowsForAction(action, state, strategy = null) {
   });
 }
 
-function getEvenTowerAssignmentRowsForAction(action, state) {
+function getEvenTowerAssignmentRowsForAction(action, state, strategy = null) {
   const waveNumber = getEvenTowerWaveForAction(action);
 
   if (!waveNumber) {
@@ -1028,7 +1082,7 @@ function getEvenTowerAssignmentRowsForAction(action, state) {
   }
 
   const positionsByRole = Object.fromEntries(
-    getEvenTowerRolePositions({ state }, waveNumber).map((position) => [
+    getEvenTowerRolePositions({ state, strategy }, waveNumber).map((position) => [
       position.roleId,
       position
     ])
@@ -1131,9 +1185,9 @@ function getOddTowerSlotPositionMap(state, waveNumber, strategy = null) {
   );
 }
 
-function getEvenTowerSlotPositionMap(state, waveNumber) {
+function getEvenTowerSlotPositionMap(state, waveNumber, strategy = null) {
   return Object.fromEntries(
-    getEvenTowerRolePositions({ state }, waveNumber).map((position) => [
+    getEvenTowerRolePositions({ state, strategy }, waveNumber).map((position) => [
       position.slotId,
       position
     ])
