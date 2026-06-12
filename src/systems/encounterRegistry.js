@@ -1,5 +1,6 @@
 import { Encounter } from '../core/Encounter.js';
 import { ForsakenMechanic } from '../mechanics/forsaken/ForsakenMechanic.js';
+import { KroxyRinnon341Strategy } from '../strategies/kroxy-rinnon/KroxyRinnon341Strategy.js';
 import { LPDUFinalTwoStrategy, LPDUStrategy } from '../strategies/lpdu/LPDUStrategy.js';
 
 const MECHANIC_FACTORIES = {
@@ -8,7 +9,8 @@ const MECHANIC_FACTORIES = {
 
 const STRATEGY_FACTORIES = {
   lpdu: () => new LPDUStrategy(),
-  'lpdu-final-2': () => new LPDUFinalTwoStrategy()
+  'lpdu-final-2': () => new LPDUFinalTwoStrategy(),
+  'kroxy-rinnon-341': () => new KroxyRinnon341Strategy()
 };
 
 export function getMechanicOptions() {

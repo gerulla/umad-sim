@@ -43,7 +43,7 @@ const ROLE_CATEGORIES = {
   ranged: ['R1', 'R2']
 };
 const ARENA_CENTER = { x: 0.5, y: 0.5 };
-const ODD_TOWER_SLOT_IDS = {
+export const ODD_TOWER_SLOT_IDS = {
   tankHelper: 'tankHelper',
   healerHelper: 'healerHelper',
   dpsHelper1: 'dpsHelper1',
@@ -87,7 +87,7 @@ const D_FACING_TOWER_CENTERS = {
   cone: { x: 0.358, y: 0.385 },
   aoe: { x: 0.358, y: 0.615 }
 };
-const C_FACING_TOWER_CENTERS = {
+export const C_FACING_TOWER_CENTERS = {
   cone: { x: 0.385, y: 0.642 },
   aoe: { x: 0.615, y: 0.642 }
 };
@@ -96,7 +96,7 @@ const ONE_FACING_TOWER_CENTERS = {
   aoe: { x: 0.318, y: 0.481 }
 };
 const A_FACING_TOWER_MARKER_POINT = { x: 0.5, y: 0.358 };
-const ODD_TOWER_SLOT_TOWER_TYPES = {
+export const ODD_TOWER_SLOT_TOWER_TYPES = {
   [ODD_TOWER_SLOT_IDS.tankHelper]: 'cone',
   [ODD_TOWER_SLOT_IDS.healerHelper]: 'cone',
   [ODD_TOWER_SLOT_IDS.coneStackBuddy]: 'cone',
@@ -1254,7 +1254,7 @@ function getBuddyRoleId(roleId) {
   return pair?.find((buddyRoleId) => buddyRoleId !== roleId) ?? null;
 }
 
-function mapTowerSlotPolarOffsets(slotPositions, slotTowerTypes, referenceTowerCenters, referenceBossCenter = ARENA_CENTER) {
+export function mapTowerSlotPolarOffsets(slotPositions, slotTowerTypes, referenceTowerCenters, referenceBossCenter = ARENA_CENTER) {
   return Object.fromEntries(
     Object.entries(slotPositions).map(([slotId, position]) => {
       const towerType = slotTowerTypes[slotId];
