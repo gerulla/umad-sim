@@ -31,7 +31,7 @@ const ALL_THINGS_NEXT_TOWER_MOVE_DELAY = 1;
 const FINAL_SPREAD_AFTER_CLEAVE_DELAY = 1;
 const BOT_REVEAL_LEAD_TIME = 1;
 const FINAL_TOWER_WAVE = 8;
-const SET_ONE_STACK_MODES = {
+export const SET_ONE_STACK_MODES = {
   buddy: 'buddy',
   supportDpsPriority: 'supportDpsPriority'
 };

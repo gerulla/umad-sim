@@ -3,7 +3,8 @@ import {
   LPDUStrategy,
   mapTowerSlotPolarOffsets,
   ODD_TOWER_SLOT_IDS,
-  ODD_TOWER_SLOT_TOWER_TYPES
+  ODD_TOWER_SLOT_TOWER_TYPES,
+  SET_ONE_STACK_MODES
 } from '../lpdu/LPDUStrategy.js';
 
 const KROXY_ODD_TOWER_C_FACING_SLOT_POSITIONS = {
@@ -29,6 +30,7 @@ export class KroxyRinnon341Strategy extends LPDUStrategy {
       id: 'kroxy-rinnon-341',
       label: 'Kroxy-Rinnon 341',
       raidplanUrl: 'https://raidplan.io/plan/UATE__aDcw1-bgVv',
+      setOneStackMode: SET_ONE_STACK_MODES.supportDpsPriority,
       oddTowerSlotPolarOffsets: KROXY_ODD_TOWER_SLOT_POLAR_OFFSETS
     });
   }
