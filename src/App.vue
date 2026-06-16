@@ -102,8 +102,8 @@ const practiceSettings = reactive({
 const partyPositionsOutput = ref('');
 const wipePause = reactive({
   active: false,
-  dismissed: false,
-  time: 0
+  time: 0,
+  roleIds: []
 });
 const failureToasts = reactive([]);
 const mobileActivePanel = ref('run');
@@ -160,6 +160,7 @@ let manualMovementLastFrameMs = 0;
 let assetLoadId = 0;
 let failureToastId = 0;
 const failureToastTimers = new Map();
+const pausedFailureToastIds = new Set();
 const shownFailureKeys = new Set();
 
 const selectedRoleData = computed(() => {
@@ -1647,12 +1648,22 @@ function showFailureToast({ key, title = 'Mechanic failed', message, elapsedSeco
   };
 
   failureToasts.push(toast);
+  scheduleFailureToastRemoval(toast.id);
+}
 
+function scheduleFailureToastRemoval(toastId, delayMs = FAILURE_TOAST_LIFETIME_MS) {
   const timeoutId = window.setTimeout(() => {
-    removeFailureToast(toast.id);
-  }, FAILURE_TOAST_LIFETIME_MS);
+    failureToastTimers.delete(toastId);
 
-  failureToastTimers.set(toast.id, timeoutId);
+    if (wipePause.active) {
+      pausedFailureToastIds.add(toastId);
+      return;
+    }
+
+    removeFailureToast(toastId);
+  }, delayMs);
+
+  failureToastTimers.set(toastId, timeoutId);
 }
 
 function removeFailureToast(toastId) {
@@ -1668,11 +1679,14 @@ function removeFailureToast(toastId) {
   if (toastIndex >= 0) {
     failureToasts.splice(toastIndex, 1);
   }
+
+  pausedFailureToastIds.delete(toastId);
 }
 
 function clearFailureToasts({ clearSeen = true } = {}) {
   failureToastTimers.forEach((timeoutId) => window.clearTimeout(timeoutId));
   failureToastTimers.clear();
+  pausedFailureToastIds.clear();
   failureToasts.splice(0, failureToasts.length);
 
   if (clearSeen) {
@@ -1680,14 +1694,42 @@ function clearFailureToasts({ clearSeen = true } = {}) {
   }
 }
 
+function pauseFailureToastRemoval() {
+  failureToastTimers.forEach((timeoutId, toastId) => {
+    window.clearTimeout(timeoutId);
+    pausedFailureToastIds.add(toastId);
+  });
+
+  failureToastTimers.clear();
+}
+
+function resumePausedFailureToastRemoval() {
+  pausedFailureToastIds.forEach((toastId) => {
+    if (failureToasts.some((toast) => toast.id === toastId)) {
+      scheduleFailureToastRemoval(toastId, 1200);
+    }
+  });
+
+  pausedFailureToastIds.clear();
+}
+
 function createHpSnapshot() {
   return new Map(encounter.state.players.map((player) => [player.roleId, player.hp]));
 }
 
+function getNewlyDefeatedRoleIds(previousHp) {
+  return encounter.state.players
+    .filter((player) => (previousHp.get(player.roleId) ?? player.hp) > 0 && player.hp <= 0)
+    .map((player) => player.roleId);
+}
+
 function syncFailureToasts(previousHp) {
+  const killedRoleIds = getNewlyDefeatedRoleIds(previousHp);
+
   syncEmptyTowerFailureToasts();
   syncStackFailureToasts();
-  syncDeathFailureToasts(previousHp);
+  syncMarkerOverlapFailureToasts(killedRoleIds);
+  syncDeathFailureToasts(killedRoleIds);
 }
 
 function syncEmptyTowerFailureToasts() {
@@ -1730,21 +1772,116 @@ function syncStackFailureToasts() {
   });
 }
 
-function syncDeathFailureToasts(previousHp) {
-  const killedRoleIds = encounter.state.players
-    .filter((player) => (previousHp.get(player.roleId) ?? player.hp) > 0 && player.hp <= 0)
-    .map((player) => player.roleId);
+function syncMarkerOverlapFailureToasts(killedRoleIds = []) {
+  getMarkerResolveOverlaps({ elapsedSeconds: encounter.elapsedSeconds }).forEach((overlap) => {
+    if (overlap.hitRoleIds.some((roleId) => killedRoleIds.includes(roleId))) {
+      return;
+    }
+
+    showFailureToast({
+      key: `marker-overlap-${overlap.resolveA.wave}-${overlap.time.toFixed(3)}-${overlap.resolveA.roleId}-${overlap.resolveB.roleId}-${overlap.hitRoleIds.join('-')}`,
+      title: 'Marker overlap',
+      message: formatMarkerOverlapMessage(overlap),
+      elapsedSeconds: overlap.time
+    });
+  });
+}
+
+function syncDeathFailureToasts(killedRoleIds) {
 
   if (killedRoleIds.length === 0) {
     return;
   }
 
+  const overlapCause = findMarkerOverlapCauseForRoles(killedRoleIds, encounter.elapsedSeconds);
+
   showFailureToast({
     key: `death-${encounter.elapsedSeconds.toFixed(3)}-${killedRoleIds.join('-')}`,
     title: 'Player death',
-    message: `Damage killed ${killedRoleIds.join(', ')}.`,
+    message: overlapCause
+      ? `${formatMarkerOverlapText(overlapCause)} and killed ${killedRoleIds.join(', ')}.`
+      : `Damage killed ${killedRoleIds.join(', ')}.`,
     elapsedSeconds: encounter.elapsedSeconds
   });
+}
+
+function findMarkerOverlapCauseForRoles(roleIds, elapsedSeconds) {
+  return getMarkerResolveOverlaps({ elapsedSeconds })
+    .find((overlap) => overlap.hitRoleIds.some((roleId) => roleIds.includes(roleId))) ?? null;
+}
+
+function getMarkerResolveOverlaps({ elapsedSeconds = null, timeWindow = 0.12 } = {}) {
+  const markerResolves = encounter.state.getMechanicData('markerResolves') ?? [];
+  const overlaps = [];
+
+  for (let firstIndex = 0; firstIndex < markerResolves.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < markerResolves.length; secondIndex += 1) {
+      const resolveA = markerResolves[firstIndex];
+      const resolveB = markerResolves[secondIndex];
+
+      if (!areMarkerResolvesConcurrent(resolveA, resolveB, timeWindow)) {
+        continue;
+      }
+
+      const hitRoleIds = getSharedRoleIds(resolveA.hitRoleIds, resolveB.hitRoleIds);
+
+      if (hitRoleIds.length === 0) {
+        continue;
+      }
+
+      const time = Math.max(resolveA.resolvedAt ?? 0, resolveB.resolvedAt ?? 0);
+
+      if (typeof elapsedSeconds === 'number' && Math.abs(time - elapsedSeconds) > timeWindow) {
+        continue;
+      }
+
+      overlaps.push({
+        resolveA,
+        resolveB,
+        hitRoleIds,
+        time
+      });
+    }
+  }
+
+  return overlaps;
+}
+
+function areMarkerResolvesConcurrent(resolveA, resolveB, timeWindow) {
+  return resolveA?.wave === resolveB?.wave
+    && resolveA?.roleId !== resolveB?.roleId
+    && Math.abs((resolveA?.resolvedAt ?? 0) - (resolveB?.resolvedAt ?? 0)) <= timeWindow;
+}
+
+function getSharedRoleIds(firstRoleIds = [], secondRoleIds = []) {
+  const secondSet = new Set(secondRoleIds);
+  return [...new Set(firstRoleIds)].filter((roleId) => secondSet.has(roleId));
+}
+
+function formatMarkerOverlapMessage(overlap) {
+  return `${formatMarkerOverlapText(overlap)}.`;
+}
+
+function formatMarkerOverlapText(overlap) {
+  const hitText = overlap.hitRoleIds.length > 0
+    ? ` on ${overlap.hitRoleIds.join(', ')}`
+    : '';
+
+  return `${formatMarkerResolveLabel(overlap.resolveA)} and ${formatMarkerResolveLabel(overlap.resolveB)} overlapped${hitText}`;
+}
+
+function formatMarkerResolveLabel(resolve) {
+  return `${resolve.roleId} ${formatMarkerType(resolve.markerType)}`;
+}
+
+function formatMarkerType(markerType) {
+  if (markerType === 'aoe') {
+    return 'AOE';
+  }
+
+  return markerType
+    ? `${markerType.charAt(0).toUpperCase()}${markerType.slice(1)}`
+    : 'Marker';
 }
 
 function syncControlledBot() {
@@ -2016,7 +2153,7 @@ function updateEncounter(deltaSeconds) {
   syncFailureToasts(previousHp);
   recordReplayFrame();
 
-  if (handlePotentialWipePause()) {
+  if (handlePotentialDefeatPause(previousHp)) {
     finishReplayRecording({ setFeedback: false });
     return;
   }
@@ -2082,27 +2219,30 @@ function resetPeriodicHealing() {
   periodicHealState.nextHealTime = LIVING_PLAYER_HEAL_INTERVAL_SECONDS;
 }
 
-function handlePotentialWipePause() {
-  if (encounter.status !== 'running' || wipePause.active || wipePause.dismissed) {
+function handlePotentialDefeatPause(previousHp) {
+  if (encounter.status !== 'running' || wipePause.active) {
     return false;
   }
 
-  if (!areAllPlayersDefeated()) {
+  const defeatedRoleIds = getNewlyDefeatedRoleIds(previousHp);
+
+  if (defeatedRoleIds.length === 0) {
     return false;
   }
 
   wipePause.active = true;
   wipePause.time = encounter.elapsedSeconds;
-  canvasState.feedback = `Party KO at ${formatElapsedTime(encounter.elapsedSeconds)}.`;
+  wipePause.roleIds = defeatedRoleIds;
+  pauseFailureToastRemoval();
+  canvasState.feedback = `${formatRoleList(defeatedRoleIds)} died at ${formatElapsedTime(encounter.elapsedSeconds)}.`;
   recordReplayFrame(true);
   stopEncounterLoop();
   drawArena();
   return true;
 }
 
-function areAllPlayersDefeated() {
-  return encounter.state.players.length > 0
-    && encounter.state.players.every((player) => player.hp <= 0);
+function formatRoleList(roleIds) {
+  return roleIds.length > 0 ? roleIds.join(', ') : 'A player';
 }
 
 function continueAfterWipe() {
@@ -2112,10 +2252,10 @@ function continueAfterWipe() {
 
   stopManualMovementLoop();
   wipePause.active = false;
-  wipePause.dismissed = true;
+  resumePausedFailureToastRemoval();
   replayState.recording = true;
   replayState.nextRecordTime = encounter.elapsedSeconds;
-  canvasState.feedback = 'Continuing after party KO for timeline review.';
+  canvasState.feedback = 'Continuing after player death for timeline review.';
   encounter.start();
   isPlaying.value = true;
   encounterLoop?.start();
@@ -2124,8 +2264,8 @@ function continueAfterWipe() {
 
 function clearWipePause() {
   wipePause.active = false;
-  wipePause.dismissed = false;
   wipePause.time = 0;
+  wipePause.roleIds = [];
 }
 
 function formatTime(seconds) {
@@ -2442,7 +2582,12 @@ onBeforeUnmount(() => {
       </div>
     </aside>
 
-    <div v-if="failureToasts.length" class="failure-toast-stack" aria-live="assertive">
+    <div
+      v-if="failureToasts.length"
+      class="failure-toast-stack"
+      :class="{ paused: wipePause.active }"
+      aria-live="assertive"
+    >
       <article
         v-for="toast in failureToasts"
         :key="toast.id"
@@ -2789,9 +2934,9 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-if="wipePause.active" class="card-surface wipe-card">
-          <p class="eyebrow">Party KO</p>
+          <p class="eyebrow">Player Death</p>
           <p class="mt-2 text-sm leading-6 text-slate-200">
-            All HP reached 0 at {{ formatElapsedTime(wipePause.time) }}.
+            {{ formatRoleList(wipePause.roleIds) }} died at {{ formatElapsedTime(wipePause.time) }}.
           </p>
           <div class="mt-3 grid grid-cols-2 gap-2">
             <button type="button" class="panel-button wipe-continue" @click="continueAfterWipe">
@@ -3114,9 +3259,9 @@ onBeforeUnmount(() => {
         </section>
 
         <section v-if="wipePause.active" class="mobile-option-group wipe-card">
-          <p class="eyebrow">Party KO</p>
+          <p class="eyebrow">Player Death</p>
           <p class="mt-2 text-sm leading-6 text-slate-200">
-            All HP reached 0 at {{ formatElapsedTime(wipePause.time) }}.
+            {{ formatRoleList(wipePause.roleIds) }} died at {{ formatElapsedTime(wipePause.time) }}.
           </p>
           <div class="mt-3 grid grid-cols-2 gap-2">
             <button type="button" class="panel-button wipe-continue" @click="continueAfterWipe">

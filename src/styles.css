@@ -85,6 +85,12 @@ select {
   backdrop-filter: blur(18px);
 }
 
+.failure-toast-stack.paused .failure-toast {
+  opacity: 1;
+  animation: none;
+  transform: translateY(0) scale(1);
+}
+
 .failure-toast > span {
   color: #fed7aa;
   font-size: 0.76rem;
