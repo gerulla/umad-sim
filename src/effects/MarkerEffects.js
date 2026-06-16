@@ -216,6 +216,10 @@ export class ConeMarkerEffect extends BaseMarkerEffect {
       return false;
     }
 
+    if (distance <= 0.000001) {
+      return false;
+    }
+
     const pointDegrees = Math.atan2(dy, dx) * (180 / Math.PI);
     return getAngleDeltaDegrees(pointDegrees, this.facingDegrees) <= this.angleDegrees / 2;
   }
